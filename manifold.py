@@ -131,3 +131,11 @@ def findCameraPose(x, y, plot=False):
         plt.plot(errs)
         plt.show()
     return w, err
+
+def findPointsOnGround(pixels, rotation, translation):
+    cam_mat = np.zeros((pixels.shape[0],2,3))
+    cam_mat[:,:,0] = -pixels
+    cam_mat[:,0,1] = 1.
+    cam_mat[:,1,2] = 1.
+    rot = np.linalg.inv(np.einsum(cam_mat, [0,1,2], rotation[:,:2], [2,3], [0,1,3]))
+    return -np.einsum(rot, [0,1,2], cam_mat, [0,2,3], translation, [3], [0,1])

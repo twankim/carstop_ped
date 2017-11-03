@@ -117,7 +117,12 @@ def main(args):
     for hline in range(cfg.nhorzlines):
         grid += [(cfg.nhorzlines-1-hline, 0), (cfg.nhorzlines-1-hline, cfg.nvertlines-1)]
     grid = np.array(grid, dtype=float) * cfg.gridlen
-    grid = np.append(grid, np.zeros(((cfg.nvertlines+cfg.nhorzlines)*2,1)), axis=1)
+    if cfg.road_curve is not None:
+        street_length = (nvertlines-1)*gridlen
+        height = (cfg.road_curve/street_length) * grid[:,1] * (street_length - grid[:,1])
+        grid = np.append(grid, height[:,None], axis=1)
+    else:
+        grid = np.append(grid, np.zeros(((cfg.nvertlines+cfg.nhorzlines)*2,1)), axis=1)
 
     ## ask user for lines
     #im = np.zeros((720,1280,3),dtype=np.uint8)
