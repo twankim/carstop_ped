@@ -15,7 +15,7 @@
 # ==============================================================================
 
 # Configureation file for dataset
-from easydict import EasyDict as edict
+from myeasydict import EasyDict as edict
 
 __C = edict()
 
@@ -29,3 +29,4 @@ __C.camera_focal = (919., 915.) # depends on camera, zoom, and image size
 __C.initial_camera_guess = [-226*.3048/12, 134*.3048/12, 81.*.3048/12, 0, 0, -.05]
 __C.mydpi = 96. # depends on monitor
 __C.removezone = (600,700,1000,1100)
+__C.road_curve = 0.

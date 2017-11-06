@@ -15,7 +15,7 @@
 # ==============================================================================
 
 # Configureation file for dataset
-from easydict import EasyDict as edict
+from myeasydict import EasyDict as edict
 
 __C = edict()
 
