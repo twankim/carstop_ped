@@ -16,7 +16,6 @@
 
 import numpy as np
 import sys
-import os
 import argparse
 import matplotlib.pyplot as plt
 from matplotlib.ticker import NullLocator
@@ -117,12 +116,9 @@ def main(args):
     for hline in range(cfg.nhorzlines):
         grid += [(cfg.nhorzlines-1-hline, 0), (cfg.nhorzlines-1-hline, cfg.nvertlines-1)]
     grid = np.array(grid, dtype=float) * cfg.gridlen
-    if cfg.road_curve is not None:
-        street_length = (nvertlines-1)*gridlen
-        height = (cfg.road_curve/street_length) * grid[:,1] * (street_length - grid[:,1])
-        grid = np.append(grid, height[:,None], axis=1)
-    else:
-        grid = np.append(grid, np.zeros(((cfg.nvertlines+cfg.nhorzlines)*2,1)), axis=1)
+    street_length = (cfg.nvertlines-1)*cfg.gridlen
+    height = (cfg.road_curve/street_length) * grid[:,1] * (street_length - grid[:,1])
+    grid = np.append(grid, height[:,None], axis=1)
 
     ## ask user for lines
     #im = np.zeros((720,1280,3),dtype=np.uint8)
@@ -156,8 +152,13 @@ def main(args):
     tmatrix_inv[3,3] = 1.
     tmatrix = tmatrix_initial.dot(np.linalg.inv(tmatrix_inv))
     invtmatrix = tmatrix_inv.dot(invmatrix_initial)
+
+    # print and save camera pose
+    pose_string = '['+(('[{:.5f}'+', {:.5f}'*3+']\n')*4)[:-1]+']'
+    pose_string = pose_string.format(*tmatrix.flatten().tolist())
     print("Camera pose matrix: ")
-    print(np.round(tmatrix, decimals=5).tolist())
+    print(pose_string)    
+    with open(output, 'wb') as outputfile: outputfile.write(pose_string)
 
     ## plot result
     posed_grid = grid.dot(invtmatrix[:3,:3].T) + invtmatrix[:3,3]
@@ -197,7 +198,7 @@ def parse_args():
                         default = 'data/2017-10-22-075401.webm', type = str)
     parser.add_argument('-out', dest='output',
                         help='Path to the output file (save parameters)',
-                        default = 'out.txt', type = str)
+                        default = 'camerapose.txt', type = str)
     args = parser.parse_args()
     return args
 
