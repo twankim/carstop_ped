@@ -94,6 +94,8 @@ def clickOnPoint(image, commandlist):
     scatterpoints, = fig.gca().plot([], [], 'go', markersize=6)    
     
     plt.imshow(image, aspect='equal')
+    plt.text(cfg.removezone[2], (cfg.removezone[0]+cfg.removezone[1])/2,
+                 'UNDO', size=25, color='white')
     click = Clickevent(commandlist, fig, scatterpoints)
     plt.connect('button_press_event',click)
     plt.show()
@@ -123,7 +125,8 @@ def main(args):
     ## ask user for lines
     #im = np.zeros((720,1280,3),dtype=np.uint8)
     im2 = im.copy()
-    im2[cfg.removezone[0]:cfg.removezone[1], cfg.removezone[2]:cfg.removezone[3], :] = (200,0,0)
+    im2[cfg.removezone[0]:cfg.removezone[1],
+        cfg.removezone[2]:cfg.removezone[3], :] = (200,0,0)
     points = clickOnPoint(im2, commands)
     assert len(points) == 2*(cfg.nhorzlines+cfg.nvertlines), "not all points were gathered"
     # convert to relative positions
