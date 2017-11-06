@@ -181,6 +181,7 @@ def main(args):
         plt.plot(line_estimate[:,0], line_estimate[:,1], 'g')
     #plt.scatter(point_estimates[:,0], point_estimates[:,1], 6, 'g')
     plt.show()
+    print 'ho'
 
 def parse_args():
     def str2bool(v):
