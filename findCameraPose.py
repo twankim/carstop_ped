@@ -15,24 +15,14 @@
 # ==============================================================================
 
 import numpy as np
+import os
 import sys
 import argparse
 import matplotlib.pyplot as plt
 from matplotlib.ticker import NullLocator
 import manifold
-from config.config import cfg
+from config import factory_configs
 from skvideo.io import vread
-
-commands = []
-commands += ["click on top end of leftmost vertical line",
-             "click on bottom of the same line"]
-commands += ["click on top end of next vertical line",
-             "click on bottom of the same line"] * (cfg.nvertlines - 1)
-commands += ["click on left end of uppermost horizontal line",
-             "click on right end of the same line"]
-commands += ["click on left end of next horizontal line",
-             "click on right end of the same line"] * (cfg.nhorzlines - 1)
-commands += ["thanks, exit now!"]
 
 def pixelToCamframe(points):
     points = np.array(points)
@@ -102,13 +92,26 @@ def clickOnPoint(image, commandlist):
     return click.points
     
 def main(args):
+    global cfg
+    cfg = factory_configs.get_config(args.config)
+    commands = []
+    commands += ["click on top end of leftmost vertical line",
+                 "click on bottom of the same line"]
+    commands += ["click on top end of next vertical line",
+                 "click on bottom of the same line"] * (cfg.nvertlines - 1)
+    commands += ["click on left end of uppermost horizontal line",
+                 "click on right end of the same line"]
+    commands += ["click on left end of next horizontal line",
+                 "click on right end of the same line"] * (cfg.nhorzlines - 1)
+    commands += ["thanks, exit now!"]
+
     # if video, use first frame
     if args.isvideo:
         im = np.squeeze(vread(args.input,num_frames=1),axis=0)
     else:
         im = plt.imread(args.input)
 
-    output = args.output
+    output = os.path.join('results',args.output)
 
     ## now do grid stuff
     # (0,0) is bottom left
@@ -202,6 +205,9 @@ def parse_args():
     parser.add_argument('-out', dest='output',
                         help='Path to the output file (save parameters)',
                         default = 'camerapose.txt', type = str)
+    parser.add_argument('-cfg', dest='config',
+                        help='File name of the config file (ex) config_logitech',
+                        default = 'config_logitech', type = str)
     args = parser.parse_args()
     return args
 
