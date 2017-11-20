@@ -160,7 +160,7 @@ def main(_):
                     idx_consider = [cid in category_index.keys() for cid in classes]
 
                     classes = classes[idx_consider]
-                    boxes = np.squeeze(boxes)[:,idx_consider]
+                    boxes = np.squeeze(boxes)[idx_consider,:]
                     scores = np.squeeze(scores)[idx_consider]
                     
                     # Save bounding boxes with score
