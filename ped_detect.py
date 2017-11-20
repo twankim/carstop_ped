@@ -195,6 +195,7 @@ def main(_):
                 i_frame += 1
             vwrite(os.path.join(path_out,fname+'_labeled.mp4'),
                    np.array(video_out),
+                   inputdict={'-r':str(FLAGS.fps)},
                    outputdict={'-r':str(FLAGS.fps)})
 if __name__ == '__main__':
     tf.app.run()
