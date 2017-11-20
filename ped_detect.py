@@ -156,9 +156,12 @@ def main(_):
                         [det_boxes,det_scores,det_classes,num_det],
                         feed_dict={image_tensor: image_np_expanded})
 
-                    boxes = np.squeeze(boxes)
                     classes = np.squeeze(classes).astype(np.int32)
-                    scores = np.squeeze(scores)
+                    idx_consider = [cid in category_index.keys() for cid in classes]
+
+                    classes = classes[idx_consider]
+                    boxes = np.squeeze(boxes)[:,idx_consider]
+                    scores = np.squeeze(scores)[idx_consider]
                     
                     # Save bounding boxes with score
                     with open(os.path.join(path_label,'{:06d}.txt'.format(i_save)),'w') as f_label:
