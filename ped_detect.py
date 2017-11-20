@@ -86,7 +86,7 @@ def main(_):
     if not os.path.exists(path_label):
         os.makedirs(path_label)
     if FLAGS.is_plot:
-        path_image_labled = os.path.join(path_out,'image_labeled')
+        path_image_labeled = os.path.join(path_out,'image_labeled')
         if not os.path.exists(path_image_labeled):
             os.makedirs(path_image_labeled)
     
