@@ -9,10 +9,10 @@ def add_path(path):
 
 this_path = os.path.dirname(__file__)
 
-tf_research_path = os.path.join(this_path,'..','models','research')
+PATH_TF_RESEARCH = os.path.join(this_path,'..','models','research')
 
 # det_path = os.path.join(tf_research_path,'object_detection')
-slim_path = os.path.join(tf_research_path,'slim')
+slim_path = os.path.join(PATH_TF_RESEARCH,'slim')
 
 if not os.path.exists(tf_research_path):
     raise ValueError('You must download tensorflow research models'
@@ -22,5 +22,5 @@ if not os.path.exists(tf_research_path):
 # if not os.path.exists(slim_path):
 #     raise ValueError('You must download tensorflow research slim API')
 
-add_path(tf_research_path)
+add_path(PATH_TF_RESEARCH)
 # add_path(slim_path)
