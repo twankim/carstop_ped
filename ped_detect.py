@@ -31,7 +31,8 @@ from object_detection.utils import label_map_util
 from object_detection.utils import visualization_utils as vis_util
 
 PATH_TF_OD = os.path.join(_init_paths.PATH_TF_RESEARCH,'object_detection')
-default_fps = 30
+DEFAULT_FPS = 30
+MIN_SCORE = .5
 
 tf.app.flags.DEFINE_string(
     'model', 'faster_rcnn_nas_coco_2017_11_08',
@@ -41,16 +42,20 @@ tf.app.flags.DEFINE_string(
     'labels', 'mscoco_label_map.pbtxt',
     'file name for the labels')
 
+# tf.app.flags.DEFINE_string(
+#     'model', 'faster_rcnn_resnet101_kitti_2017_11_08',
+#     'model name to use for object detection')
+
+# tf.app.flags.DEFINE_string(
+#     'labels', 'kitti_label_map.pbtxt',
+#     'file name for the labels')
+
 tf.app.flags.DEFINE_string(
     'dout', 'data',
     'path to save the ground truth dataset')
 
 tf.app.flags.DEFINE_string(
-    'din','data',
-    'path to the dataset')
-
-tf.app.flags.DEFINE_string(
-    'input', '2017-10-22-075401.webm',
+    'input', 'data/2017-10-22-075401.webm',
     'name of the the input video/image file at data folder')
 
 tf.app.flags.DEFINE_integer(
@@ -69,8 +74,9 @@ def main(_):
     if tf.__version__ != '1.4.0':
         raise ImportError('Please upgrade your tensorflow installation to v1.4.0!')
 
+    assert os.path.exists()
     # Define PATHs for data generation
-    fname = os.path.splitext(FLAGS.input)[0]
+    fname = os.path.splitext(os.path.basename(FLAGS.input))[0]
     path_out = os.path.join(FLAGS.dout,fname)
     path_image = os.path.join(path_out,'image')
     path_label = os.path.join(path_out,'label')
@@ -78,12 +84,16 @@ def main(_):
         os.makedirs(path_image)
     if not os.path.exists(path_label):
         os.makedirs(path_label)
+    if FLAGS.is_plot:
+        path_image_labled = os.path.join(path_out,'image_labeled')
+        if not os.path.exists(path_image_labeled):
+            os.makedirs(path_image_labeled)
     
     # Path for frozen inference graph
     path_model = os.path.join('pretrained',FLAGS.model,'frozen_inference_graph.pb')
 
     # Load label map
-    NUM_CLASSES = 90
+    NUM_CLASSES = 14 # Consider only subsets of the COCO's label
     PATH_OD_LABELS = os.path.join(PATH_TF_OD,'data',FLAGS.labels)
     label_map = label_map_util.load_labelmap(PATH_OD_LABELS)
     categories = label_map_util.convert_label_map_to_categories(
@@ -103,11 +113,10 @@ def main(_):
 
     # Read video and do object detection
     rate = FLAGS.fps
-    f_in = os.path.join(FLAGS.din,FLAGS.input)
-    videogen = vreader(f_in,inputdict={'-r':str(default_fps)})
-    r_fps = default_fps/FLAGS.fps
-    assert (default_fps % FLAGS.fps) == 0,\
-        "{} must be divisible by the Target FPS".format(default_fps)
+    videogen = vreader(FLAGS.input,inputdict={'-r':str(DEFAULT_FPS)})
+    r_fps = DEFAULT_FPS/FLAGS.fps
+    assert (DEFAULT_FPS % FLAGS.fps) == 0,\
+        "{} must be divisible by the Target FPS".format(DEFAULT_FPS)
 
     with detection_graph.as_default():
         with tf.Session(graph=detection_graph) as sess:
@@ -132,6 +141,7 @@ def main(_):
             for image in videogen:
                 if i_frame % r_fps == 0:
                     # Save image frame
+                    print("-frame {}".format(i_save))
                     imsave(os.path.join(path_image,'{:06d}.png'.format(i_save)),image)
 
                     # ----- Process object detection -----
@@ -147,26 +157,41 @@ def main(_):
                     (boxes, scores, classes, num) = sess.run(
                         [det_boxes,det_scores,det_classes,num_det],
                         feed_dict={image_tensor: image_np_expanded})
+
+                    boxes = np.squeeze(boxes)
+                    classes = np.squeeze(classes).astype(np.int32)
+                    scores = np.squeeze(scores)
                     
                     # Save bounding boxes with score
                     with open(os.path.join(path_label,'{:06d}.txt'.format(i_save)),'w') as f_label:
-                        for i in xrange(3):
-                            f_label.write('ho')
+                        # Format splitted by space.
+                        # 1: class
+                        # 4: bbox (ymin, xmin, ymax, xmax)
+                        # 1: score
+                        for i_obj in xrange(boxes.shape[0]):
+                            line = [classes[i_obj]]
+                            line += [str(coord) for coord in boxes[i_obj]]
+                            line += [str(scores[i_obj])]
+                            line = ' '.join(line)+'\n'
+                            f_label.write(line)
 
                     if FLAGS.is_plot:
+                        image_labeled = np.copy(image)
                         # Visualization of the results of a detection.
                         vis_util.visualize_boxes_and_labels_on_image_array(
-                            image,
-                            np.squeeze(boxes),
-                            np.squeeze(classes).astype(np.int32),
-                            np.squeeze(scores),
+                            image_labeled,
+                            boxes,
+                            classes,
+                            scores,
                             category_index,
+                            max_boxes_to_draw=None,
+                            min_score_thresh=MIN_SCORE,
                             use_normalized_coordinates=True,
                             line_thickness=8)
 
                         # plt.figure(figsize=IMAGE_SIZE)
                         # plt.imshow(image_np)
-                        imsave(os.path.join(path_image,'temp_{:06d}.png'.format(i_save)),image)
+                        imsave(os.path.join(path_image_labeled,'{:06d}.png'.format(i_save)),image_labeled)
                     i_save +=1
                 i_frame += 1
 
