@@ -14,7 +14,7 @@ PATH_TF_RESEARCH = os.path.join(this_path,'..','models','research')
 # det_path = os.path.join(tf_research_path,'object_detection')
 slim_path = os.path.join(PATH_TF_RESEARCH,'slim')
 
-if not os.path.exists(tf_research_path):
+if not os.path.exists(PATH_TF_RESEARCH):
     raise ValueError('You must download tensorflow research models'
                      'https://github.com/tensorflow/models/tree/master/research')
 # if not os.path.exists(det_path):

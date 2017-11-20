@@ -30,7 +30,7 @@ import _init_paths
 from object_detection.utils import label_map_util
 from object_dtection.utils import visualization_utils as vis_util
 
-PATH_TF_OD = os.path.join(_init_paths.PATH_TF_RESEARCH)
+PATH_TF_OD = os.path.join(_init_paths.PATH_TF_RESEARCH,'object_detection')
 default_fps = 30
 
 tf.app.flags.DEFINE_string(
@@ -45,7 +45,7 @@ tf.app.flags.DEFINE_string(
     'dout', 'data',
     'path to save the ground truth dataset')
 
-tf.app_flags.DEFINE_string(
+tf.app.flags.DEFINE_string(
     'din','data',
     'path to the dataset')
 
@@ -84,8 +84,8 @@ def main(_):
 
     # Load label map
     NUM_CLASSES = 90
-    path_labels = os.path.join(PATH_TF_OD,'data',FLAGS.labels)
-    label_map = label_map_util.load_labelmap(path_labels)
+    PATH_OD_LABELS = os.path.join(PATH_TF_OD,'data',FLAGS.labels)
+    label_map = label_map_util.load_labelmap(PATH_OD_LABELS)
     categories = label_map_util.convert_label_map_to_categories(
                     label_map,
                     max_num_classes=NUM_CLASSES,
