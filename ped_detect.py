@@ -156,7 +156,7 @@ def main(_):
                     if FLAGS.is_plot:
                         # Visualization of the results of a detection.
                         vis_util.visualize_boxes_and_labels_on_image_array(
-                            image_np,
+                            image,
                             np.squeeze(boxes),
                             np.squeeze(classes).astype(np.int32),
                             np.squeeze(scores),
@@ -166,7 +166,7 @@ def main(_):
 
                         # plt.figure(figsize=IMAGE_SIZE)
                         # plt.imshow(image_np)
-                        imsave(os.path.join(path_image,'temp_{:06d}.png'.format(i_save)),image_np)
+                        imsave(os.path.join(path_image,'temp_{:06d}.png'.format(i_save)),image)
                     i_save +=1
                 i_frame += 1
 
