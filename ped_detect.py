@@ -106,7 +106,7 @@ def main(_):
     f_in = os.path.join(FLAGS.din,FLAGS.input)
     videogen = vreader(f_in,inputdict={'-r':str(default_fps)})
     r_fps = default_fps/FLAGS.fps
-    assert default_fps % FLAGS.fps == 0,
+    assert (default_fps % FLAGS.fps) == 0,\
         "{} must be divisible by the Target FPS".format(default_fps)
 
     with detection_graph.as_default():
