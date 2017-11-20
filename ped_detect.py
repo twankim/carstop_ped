@@ -74,7 +74,8 @@ def main(_):
     if tf.__version__ != '1.4.0':
         raise ImportError('Please upgrade your tensorflow installation to v1.4.0!')
 
-    assert os.path.exists()
+    assert os.path.exists(FLAGS.input),\
+        "File {} doesn't exist!".format(FLAGS.input)
     # Define PATHs for data generation
     fname = os.path.splitext(os.path.basename(FLAGS.input))[0]
     path_out = os.path.join(FLAGS.dout,fname)
