@@ -28,7 +28,7 @@ from matplotlib import pyplot as plt
 
 import _init_paths
 from object_detection.utils import label_map_util
-from object_dtection.utils import visualization_utils as vis_util
+from object_detection.utils import visualization_utils as vis_util
 
 PATH_TF_OD = os.path.join(_init_paths.PATH_TF_RESEARCH,'object_detection')
 default_fps = 30
