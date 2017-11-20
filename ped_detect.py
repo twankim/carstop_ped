@@ -170,7 +170,7 @@ def main(_):
                         # 4: bbox (ymin, xmin, ymax, xmax)
                         # 1: score
                         for i_obj in xrange(boxes.shape[0]):
-                            if classes[i] in category_index.keys():
+                            if classes[i_obj] in category_index.keys():
                                 line = [category_index[classes[i_obj]]['name']]
                                 line += [str(coord) for coord in boxes[i_obj]]
                                 line += [str(scores[i_obj])]
