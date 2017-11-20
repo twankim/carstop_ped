@@ -63,7 +63,7 @@ tf.app.flags.DEFINE_integer(
 tf.app.flags.DEFINE_boolean(
     'is_plot', False, 'Show and plot the result image')
 
-FLAGS = tf.app.flags.
+FLAGS = tf.app.flags.FLAGS
 
 def main(_):
     if tf.__version__ != '1.4.0':
