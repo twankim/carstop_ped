@@ -22,7 +22,7 @@ import os
 import sys
 import numpy as np
 import tensorflow as tf
-from skvideo.io import vreader
+from skvideo.io import (vreader,vwrite)
 from skimage.io import imsave
 from matplotlib import pyplot as plt
 
@@ -85,10 +85,6 @@ def main(_):
         os.makedirs(path_image)
     if not os.path.exists(path_label):
         os.makedirs(path_label)
-    if FLAGS.is_plot:
-        path_image_labeled = os.path.join(path_out,'image_labeled')
-        if not os.path.exists(path_image_labeled):
-            os.makedirs(path_image_labeled)
     
     # Path for frozen inference graph
     path_model = os.path.join('pretrained',FLAGS.model,'frozen_inference_graph.pb')
@@ -137,6 +133,7 @@ def main(_):
             num_det = detection_graph.get_tensor_by_name(
                                 'num_detections:0')
             
+            video_out = []
             i_frame = 0
             i_save = 0
             for image in videogen:
@@ -170,32 +167,34 @@ def main(_):
                         # 4: bbox (ymin, xmin, ymax, xmax)
                         # 1: score
                         for i_obj in xrange(boxes.shape[0]):
-                            if classes[i_obj] in category_index.keys():
+                            if (classes[i_obj] in category_index.keys()) and (scores[i_obj]>MIN_SCORE):
                                 line = [category_index[classes[i_obj]]['name']]
                                 line += [str(coord) for coord in boxes[i_obj]]
                                 line += [str(scores[i_obj])]
                                 line = ' '.join(line)+'\n'
                                 f_label.write(line)
 
+                    image_labeled = np.copy(image)
+                    # Visualization of the results of a detection.
+                    vis_util.visualize_boxes_and_labels_on_image_array(
+                        image_labeled,
+                        boxes,
+                        classes,
+                        scores,
+                        category_index,
+                        max_boxes_to_draw=None,
+                        min_score_thresh=MIN_SCORE,
+                        use_normalized_coordinates=True,
+                        line_thickness=8)
+                    video_out.append(image_labeled)
+                    
                     if FLAGS.is_plot:
-                        image_labeled = np.copy(image)
-                        # Visualization of the results of a detection.
-                        vis_util.visualize_boxes_and_labels_on_image_array(
-                            image_labeled,
-                            boxes,
-                            classes,
-                            scores,
-                            category_index,
-                            max_boxes_to_draw=None,
-                            min_score_thresh=MIN_SCORE,
-                            use_normalized_coordinates=True,
-                            line_thickness=8)
-
-                        # plt.figure(figsize=IMAGE_SIZE)
-                        # plt.imshow(image_np)
-                        imsave(os.path.join(path_image_labeled,'{:06d}.png'.format(i_save)),image_labeled)
+                        plt.figure(figsize=IMAGE_SIZE)
+                        plt.imshow(image_np)
                     i_save +=1
                 i_frame += 1
-
+            vwrite(os.path.join(path_out,fname+'_labeled.mp4'),
+                   np.array(video_out),
+                   outputdict={'-r':str(FLAGS.fps)})
 if __name__ == '__main__':
     tf.app.run()
