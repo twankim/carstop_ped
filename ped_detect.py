@@ -35,6 +35,10 @@ DEFAULT_FPS = 30
 MIN_SCORE = .5
 
 tf.app.flags.DEFINE_string(
+    'dataset', 'coco',
+    'Type of dataset ex) coco, kitti')
+
+tf.app.flags.DEFINE_string(
     'model', 'faster_rcnn_nas_coco_2017_11_08',
     'model name to use for object detection')
 
@@ -70,6 +74,30 @@ tf.app.flags.DEFINE_boolean(
 
 FLAGS = tf.app.flags.FLAGS
 
+def get_valid_label_list(dataset):
+    if dataset == 'coco':
+        return ['person','bicycle','car','motorcycle','bus',
+                'truck','traffic light','stop sign']
+    elif dataset == 'kitti':
+        return ['car','pedestrian','cyclist']
+    else:
+        return ['car','pedestrian']
+
+def convert_label(dataset,label):
+    if dataset == 'coco':
+        if label == 'person':
+            return 'pedestrian'
+        elif label in ['car','truck','bus']
+            return 'car'
+        elif label == 'stop sign':
+            return 'stopsign'
+        elif label == 'traffic light':
+            return 'trafficlight'
+        else:
+            return label
+    else:
+        return label
+
 def main(_):
     if tf.__version__ != '1.4.0':
         raise ImportError('Please upgrade your tensorflow installation to v1.4.0!')
@@ -98,6 +126,11 @@ def main(_):
                     max_num_classes=NUM_CLASSES,
                     use_display_name=True)
     category_index = label_map_util.create_category_index(categories)
+
+    # Get list of valid label ids
+    list_labels = get_valid_label_list(FLAGS.dataset)
+    list_valid_ids = [cid for cid in category_index.keys() \
+                      if category_index[cid]['name'] in list_labels]
 
     # Load a frozen Tensorflow model
     detection_graph = tf.Graph()
@@ -157,7 +190,8 @@ def main(_):
                         feed_dict={image_tensor: image_np_expanded})
 
                     classes = np.squeeze(classes).astype(np.int32)
-                    idx_consider = [cid in category_index.keys() for cid in classes]
+                    # Select only valid classes
+                    idx_consider = [cid in list_valid_ids for cid in classes]
 
                     classes = classes[idx_consider]
                     boxes = np.squeeze(boxes)[idx_consider,:]
@@ -170,8 +204,9 @@ def main(_):
                         # 4: bbox (ymin, xmin, ymax, xmax)
                         # 1: score
                         for i_obj in xrange(boxes.shape[0]):
-                            if (classes[i_obj] in category_index.keys()) and (scores[i_obj]>MIN_SCORE):
-                                line = [category_index[classes[i_obj]]['name']]
+                            if scores[i_obj]>MIN_SCORE:
+                                line = [convert_label(FLAGS.dataset,
+                                                      category_index[classes[i_obj]]['name'])]
                                 line += [str(coord) for coord in boxes[i_obj]]
                                 line += [str(scores[i_obj])]
                                 line = ' '.join(line)+'\n'
