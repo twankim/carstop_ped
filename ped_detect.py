@@ -76,10 +76,9 @@ FLAGS = tf.app.flags.FLAGS
 
 def get_valid_label_list(dataset):
     if dataset == 'coco':
-        return ['person','bicycle','car','motorcycle','bus',
-                'truck','traffic light','stop sign']
+        return ['person','car','bus','truck']
     elif dataset == 'kitti':
-        return ['car','pedestrian','cyclist']
+        return ['car','pedestrian']
     else:
         return ['car','pedestrian']
 
@@ -89,12 +88,6 @@ def convert_label(dataset,label):
             return 'pedestrian'
         elif label in ['car','truck','bus']:
             return 'car'
-        elif label == 'stop sign':
-            return 'stopsign'
-        elif label == 'traffic light':
-            return 'trafficlight'
-        else:
-            return label
     else:
         return label
 
@@ -118,7 +111,7 @@ def main(_):
     path_model = os.path.join('pretrained',FLAGS.model,'frozen_inference_graph.pb')
 
     # Load label map
-    NUM_CLASSES = 14 # Consider only subsets of the COCO's label
+    NUM_CLASSES = 9 # Consider only subsets of the COCO's label
     PATH_OD_LABELS = os.path.join(PATH_TF_OD,'data',FLAGS.labels)
     label_map = label_map_util.load_labelmap(PATH_OD_LABELS)
     categories = label_map_util.convert_label_map_to_categories(
