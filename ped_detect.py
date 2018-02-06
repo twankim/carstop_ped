@@ -76,18 +76,18 @@ FLAGS = tf.app.flags.FLAGS
 
 def get_valid_label_list(dataset):
     if dataset == 'coco':
-        return ['person','car','bus','truck']
+        return [u'person',u'car',u'bus',u'truck']
     elif dataset == 'kitti':
-        return ['car','pedestrian']
+        return [u'car',u'pedestrian']
     else:
-        return ['car','pedestrian']
+        return [u'car',u'pedestrian']
 
 def convert_label(dataset,label):
     if dataset == 'coco':
-        if label == 'person':
-            return 'pedestrian'
-        elif label in ['car','truck','bus']:
-            return 'car'
+        if label == u'person':
+            return u'pedestrian'
+        elif label in [u'car',u'truck',u'bus']:
+            return u'car'
     else:
         return label
 
@@ -124,6 +124,9 @@ def main(_):
     list_labels = get_valid_label_list(FLAGS.dataset)
     list_valid_ids = [cid for cid in category_index.keys() \
                       if category_index[cid]['name'] in list_labels]
+    for cid in list_valid_ids:
+        category_index[cid]['name'] = convert_label(FLAGS.dataset,
+                                                    category_index[cid]['name'])
 
     # Load a frozen Tensorflow model
     detection_graph = tf.Graph()
@@ -198,8 +201,7 @@ def main(_):
                         # 1: score
                         for i_obj in xrange(boxes.shape[0]):
                             if scores[i_obj]>MIN_SCORE:
-                                line = [convert_label(FLAGS.dataset,
-                                                      category_index[classes[i_obj]]['name'])]
+                                line = [category_index[classes[i_obj]]['name']]
                                 line += [str(coord) for coord in boxes[i_obj]]
                                 line += [str(scores[i_obj])]
                                 line = ' '.join(line)+'\n'
