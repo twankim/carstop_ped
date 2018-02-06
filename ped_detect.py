@@ -87,7 +87,7 @@ def convert_label(dataset,label):
     if dataset == 'coco':
         if label == 'person':
             return 'pedestrian'
-        elif label in ['car','truck','bus']
+        elif label in ['car','truck','bus']:
             return 'car'
         elif label == 'stop sign':
             return 'stopsign'
