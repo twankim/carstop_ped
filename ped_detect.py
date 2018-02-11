@@ -109,7 +109,7 @@ def sec2tstamp(tsec):
 def convert_timestamps(timeline):
     t_start,t_end = timeline.split('\n')[0].split(' ')
     sec_duration = tstamp2sec(t_end) - tstamp2sec(t_start)
-    return t_start,sec2tstamp(sec_duration)
+    return t_start,sec2tstamp(sec_duration),sec_duration
 
 def main(_):
     gen_image = False
@@ -208,6 +208,7 @@ def main(_):
                 for i_test,time_stamp in enumerate(time_stamps):  
                     print('!!!!!{}'.format(i_test))              
                     videogen = vreader(input_video,
+                                       num_frames=int(time_stamp[2]*FLAGS.fps_in),
                                        inputdict={'-r':str(FLAGS.fps_in),
                                                   '-ss':time_stamp[0],
                                                   '-t':time_stamp[1]})
