@@ -122,7 +122,7 @@ def main(_):
     
     # Define PATHs for data generation
     fname = os.path.splitext(os.path.basename(FLAGS.input))[0]
-    if not FLAGS.dout:
+    if FLAGS.dout:
         path_out = os.path.join(FLAGS.dout,fname)
     else:
         path_out = FLAGS.input
