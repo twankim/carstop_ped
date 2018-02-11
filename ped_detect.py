@@ -205,7 +205,8 @@ def main(_):
                                     'num_detections:0')
         
                 # Save frames only from the selected time frames
-                for time_stamp in time_stamps:                
+                for i_test,time_stamp in enumerate(time_stamps):  
+                    print('!!!!!{}'.format(i_test))              
                     videogen = vreader(input_video,
                                        inputdict={'-r':str(FLAGS.fps_in),
                                                   '-ss':time_stamp[0],
