@@ -208,10 +208,10 @@ def main(_):
                 for i_test,time_stamp in enumerate(time_stamps):
                     videogen = vreader(input_video,
                                        num_frames=int(time_stamp[2]*FLAGS.fps_in),
-                                       inputdict={'-r':str(FLAGS.fps_in),
-                                                  '-ss':time_stamp[0],
-                                                  '-t':time_stamp[1]},
-                                       outputdict={'-r':str(FLAGS.fps_in)})
+                                       inputdict={'-r':str(FLAGS.fps_in)},
+                                       outputdict={'-r':str(FLAGS.fps_in),
+                                                   '-ss':time_stamp[0],
+                                                   '-t':time_stamp[1]})
                     print('-Time stamp start: {}, Duration: {} (secs)'.format(
                                     time_stamp[0],
                                     time_stamp[2]))
