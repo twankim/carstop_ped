@@ -205,19 +205,21 @@ def main(_):
                                     'num_detections:0')
         
                 # Save frames only from the selected time frames
-                for i_test,time_stamp in enumerate(time_stamps):           
+                for i_test,time_stamp in enumerate(time_stamps):
                     videogen = vreader(input_video,
                                        num_frames=int(time_stamp[2]*FLAGS.fps_in),
                                        inputdict={'-r':str(FLAGS.fps_in),
                                                   '-ss':time_stamp[0],
                                                   '-t':time_stamp[1]},
                                        outputdict={'-r':str(FLAGS.fps_in)})
-                    
+                    print('-Time stamp start: {}, Duration: {} (secs)'.format(
+                                    time_stamp[0],
+                                    time_stamp[2]))
                     i_frame = 0
                     for image in videogen:
                         if i_frame % r_fps == 0:
                             # Save image frame
-                            print("-frame {}".format(i_save))
+                            # print("-frame {}".format(i_save))
                             imsave(os.path.join(path_image,'{:06d}.png'.format(i_save)),image)
 
                             # ----- Process object detection -----
