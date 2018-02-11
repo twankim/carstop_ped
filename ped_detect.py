@@ -97,13 +97,13 @@ def convert_label(dataset,label):
 def tstamp2sec(tstamp):
     # Convert hh:mm:ss format string to seconds
     hh,mm,ss = tstamp.split(':')
-    return 3600*int(hh)+60*int(mm)+int(ss)
+    return 3600*int(hh) + 60*int(mm) + int(ss)
 
 def sec2tstamp(tsec):
     # Convert seconds to hh:mm:ss format string
-    hh = tsec / 3600
-    mm = (tsec % 3600) /60
-    sec = tsec % 60
+    hh = int(tsec / 3600)
+    mm = int((tsec % 3600) /60)
+    sec = int(tsec % 60)
     return '{:02d}:{:02d}:{:02d}'.format(hh,mm,sec)
 
 def convert_timestamps(timeline):
