@@ -281,7 +281,7 @@ def main(_):
         if FLAGS.is_vout:
             vwrite(os.path.join(path_out,fname+'_labeled.mp4'),
                    np.array(video_out),
-                   inputdict={'-r':str(FLAGS.fps_out)}
+                   inputdict={'-r':str(FLAGS.fps_out)},
                    outputdict={'-r':str(FLAGS.fps_out)})
     
     # ------------------------------ LIDAR ----------------------------------
