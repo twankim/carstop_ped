@@ -85,7 +85,7 @@ def get_valid_label_list(data_pre):
     else:
         return [u'car',u'pedestrian']
 
-def convert_label(dataset,label):
+def convert_label(data_pre,label):
     if data_pre == 'coco':
         if label == u'person':
             return u'pedestrian'
