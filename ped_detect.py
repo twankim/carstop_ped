@@ -211,7 +211,7 @@ def main(_):
                                        inputdict={'-r':str(FLAGS.fps_in),
                                                   '-ss':time_stamp[0],
                                                   '-t':time_stamp[1]},
-                                       outputdixt={'-r':str(FLAGS.fps_in)})
+                                       outputdict={'-r':str(FLAGS.fps_in)})
                     
                     i_frame = 0
                     for image in videogen:
