@@ -126,12 +126,12 @@ def main(_):
         path_out = os.path.join(FLAGS.dout,fname)
     else:
         path_out = FLAGS.input
-    if os.path.exists(FLAGS.input,'cam.mkv'):
+    if os.path.exists(os.path.join(FLAGS.input,'cam.mkv')):
         path_image = os.path.join(path_out,'image')
         gen_image = True
         if not os.path.exists(path_image):
             os.makedirs(path_image)
-    if os.path.exists(FLAGS.input,'lidar.dat'):
+    if os.path.exists(os.path.join(FLAGS.input,'lidar.dat')):
         path_lidar = os.path.join(path_out,'lidar')
         gen_lidar = True
         if not os.path.exists(path_lidar):
