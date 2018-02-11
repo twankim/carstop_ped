@@ -210,7 +210,8 @@ def main(_):
                                        num_frames=int(time_stamp[2]*FLAGS.fps_in),
                                        inputdict={'-r':str(FLAGS.fps_in),
                                                   '-ss':time_stamp[0],
-                                                  '-t':time_stamp[1]})
+                                                  '-t':time_stamp[1]},
+                                       outputdixt={'-r':str(FLAGS.fps_in)})
                     
                     i_frame = 0
                     for image in videogen:
@@ -280,6 +281,7 @@ def main(_):
         if FLAGS.is_vout:
             vwrite(os.path.join(path_out,fname+'_labeled.mp4'),
                    np.array(video_out),
+                   inputdict={'-r':str(FLAGS.fps_out)}
                    outputdict={'-r':str(FLAGS.fps_out)})
     
     # ------------------------------ LIDAR ----------------------------------
