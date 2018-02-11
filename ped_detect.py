@@ -94,13 +94,13 @@ def convert_label(data_pre,label):
     else:
         return label
 
+# Convert hh:mm:ss format string to seconds
 def tstamp2sec(tstamp):
-    # Convert hh:mm:ss format string to seconds
     hh,mm,ss = tstamp.split(':')
     return 3600*int(hh) + 60*int(mm) + int(ss)
 
+# Convert seconds to hh:mm:ss format string
 def sec2tstamp(tsec):
-    # Convert seconds to hh:mm:ss format string
     hh = int(tsec / 3600)
     mm = int((tsec % 3600) /60)
     sec = int(tsec % 60)
@@ -178,39 +178,38 @@ def main(_):
                 tf.import_graph_def(od_graph_def, name='')
 
         # Read video and do object detection
-        rate = FLAGS.fps_out
         input_video = os.path.join(FLAGS.input,'cam.mkv')
         i_save = 0 # image name indexing
+        r_fps = FLAGS.fps_in/FLAGS.fps_out # ratio of input/output fps
+        assert (FLAGS.fps_in % FLAGS.fps_out) == 0,\
+            "{} must be divisible by the Target FPS".format(FLAGS.fps_in)
         if FLAGS.is_vout:
             video_out = [] # Output video with labels
-        
-        # Save frames only from the selected time frames
-        for time_stamp in time_stamps:                
-            videogen = vreader(input_video,
-                               inputdict={'-r':str(FLAGS.fps_in),
-                                          '-ss':time_stamp[0],
-                                          '-t':time_stamp[1]})
-            r_fps = FLAGS.fps_in/FLAGS.fps_out # ratio of input/output fps
-            assert (FLAGS.fps_in % FLAGS.fps_out) == 0,\
-                "{} must be divisible by the Target FPS".format(FLAGS.fps_in)
 
-            with detection_graph.as_default():
-                with tf.Session(graph=detection_graph) as sess:
-                    # Definite input and output Tensors for detection_graph
-                    image_tensor = detection_graph.get_tensor_by_name(
-                                        'image_tensor:0')
-                    # Each box represents a part of the image 
-                    # where a particular object was detected.
-                    det_boxes = detection_graph.get_tensor_by_name(
-                                        'detection_boxes:0')
-                    # Each score represent how level of confidence for each of the objects.
-                    # Score is shown on the result image, together with the class label.
-                    det_scores = detection_graph.get_tensor_by_name(
-                                        'detection_scores:0')
-                    det_classes = detection_graph.get_tensor_by_name(
-                                        'detection_classes:0')
-                    num_det = detection_graph.get_tensor_by_name(
-                                        'num_detections:0')
+        with detection_graph.as_default():
+            with tf.Session(graph=detection_graph) as sess:
+                # Definite input and output Tensors for detection_graph
+                image_tensor = detection_graph.get_tensor_by_name(
+                                    'image_tensor:0')
+                # Each box represents a part of the image 
+                # where a particular object was detected.
+                det_boxes = detection_graph.get_tensor_by_name(
+                                    'detection_boxes:0')
+                # Each score represent how level of confidence for each of the objects.
+                # Score is shown on the result image, together with the class label.
+                det_scores = detection_graph.get_tensor_by_name(
+                                    'detection_scores:0')
+                det_classes = detection_graph.get_tensor_by_name(
+                                    'detection_classes:0')
+                num_det = detection_graph.get_tensor_by_name(
+                                    'num_detections:0')
+        
+                # Save frames only from the selected time frames
+                for time_stamp in time_stamps:                
+                    videogen = vreader(input_video,
+                                       inputdict={'-r':str(FLAGS.fps_in),
+                                                  '-ss':time_stamp[0],
+                                                  '-t':time_stamp[1]})
                     
                     i_frame = 0
                     for image in videogen:
