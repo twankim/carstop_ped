@@ -311,7 +311,7 @@ def main(_):
             lidar_out = lread(input_lidar,start_time,start_time+time_stamp[2])
             if len(n_frames)>0:
                 n_frame = n_frames[idx_t]
-                assert n_frame >= len(lidar_out), \
+                assert n_frame <= len(lidar_out), \
                     "* Number of frames in video is larger than the ones in LIDAR!"
                 lidar_out = lidar_out[:n_frame] # Match frame numbers with images
 
