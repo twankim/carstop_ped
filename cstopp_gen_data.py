@@ -53,7 +53,7 @@ tf.app.flags.DEFINE_integer(
     'Number of Classes to consider from 1 in the label map')
 
 tf.app.flags.DEFINE_string(
-    'out', None,
+    'output', None,
     'path to save the ground truth dataset')
 
 tf.app.flags.DEFINE_string(
@@ -322,7 +322,7 @@ def main(_):
         "File {} doesn't exist! (txt file for data split)".format(FLAGS.f_split)
 
     # Define Paths for data generation
-    out_path = FLAGS.out if FLAGS.out else FLAGS.input
+    out_path = FLAGS.output if FLAGS.output else FLAGS.input
 
     # Read split file
     dict_split = get_split_dict(FLAGS.f_split,FLAGS.input)
