@@ -147,7 +147,7 @@ class Detector:
         # Preload frozen Tensorflow Model
         with self.det_graph.as_default():
             od_graph_def = tf.GraphDef()
-            with tf.gfile.GFile(file_model_pb,'rb') as fid:
+            with tf.gfile.GFile(self.file_model_pb,'rb') as fid:
                 od_graph_def.ParseFromString(fid.read())
                 tf.import_graph_def(od_graph_def, name='')
         
