@@ -188,7 +188,6 @@ def gen_data(split,list_dpath,out_path,fps_in,fps_out,
     if not os.path.exists(opath_label):
         os.makedirs(opath_label)
 
-    n_frames = [] # Number of frames to be saved
     i_save = 0 # Frame name indexing
     sum_frames = 0 # Current total number of frames
     r_fps = fps_in/fps_out # ratio of input/output fps
@@ -201,6 +200,7 @@ def gen_data(split,list_dpath,out_path,fps_in,fps_out,
     print('\n<Generating {} set>'.format(split))
     for d_path in list_dpath:
         i_save_lidar = i_save # Frame name indexing for LIDAR
+        n_frames = [] # Number of frames to be saved
 
         # Load time stamps
         input_time = os.path.join(d_path,_FILE_TIMES)
@@ -270,10 +270,7 @@ def gen_data(split,list_dpath,out_path,fps_in,fps_out,
                             line_thickness=2)
                         video_out.append(image_labeled)
                     i_save +=1
-            if len(n_frames) == 0:
-                n_frames.append(i_save)
-            else:
-                n_frames.append(i_save-sum_frames)
+            n_frames.append(i_save-sum_frames)
             sum_frames = i_save
 
         # ------------------------------ LIDAR ----------------------------------
