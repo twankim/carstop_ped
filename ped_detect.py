@@ -140,7 +140,7 @@ def convert_timestamps(timeline):
 class Detector:
     def __init__(self,file_model_pb):
         self.det_graph = tf.Graph()
-        self.file_graphpb = file_model_pb
+        self.file_model_pb = file_model_pb
         self.load_model()
 
     def load_model(self):
