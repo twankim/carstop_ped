@@ -229,7 +229,6 @@ def gen_data(split,list_dpath,out_path,fps_in,fps_out,
                     out_image = os.path.join(opath_image,_FILE_OUT.format(i_save)+'.png')
                     out_label = os.path.join(opath_label,_FILE_OUT.format(i_save)+'.txt')
                     # Save image frame
-                    # print("-frame {}".format(i_save))
                     imsave(out_image,image)
 
                     # ----- Process object detection -----
