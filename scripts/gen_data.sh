@@ -10,7 +10,7 @@ FILE_SPLIT=/data/cstopp/data_split.txt
 FPS_IN=10
 FPS_OUT=10
 
-python ped_detect.py \
+python cstopp_gen_data.py \
         --data_pre=${DATA_PRE} \
         --model=${FILE_MODEL} \
         --label=${LABEL_MAP} \

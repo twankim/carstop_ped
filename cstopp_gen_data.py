@@ -198,18 +198,18 @@ def gen_data(split,list_dpath,out_path,fps_in,fps_out,
         video_out = [] # Output video with labels
 
     detector.load_sess() # Load tf.Session
-
+    print('\n<Generating {} set>'.format(split))
     for d_path in list_dpath:
         i_save_lidar = i_save # Frame name indexing for LIDAR
 
         # Load time stamps
         input_time = os.path.join(d_path,_FILE_TIMES)
-        with open(intput_time,'r') as f_time:
+        with open(input_time,'r') as f_time:
             time_stamps = map(lambda x: convert_timestamps(x),f_time)
 
         # ------------------------------ IMAGE ----------------------------------
         # Read video file and do object detection for generating images per frame
-        print('\n...Generating images per frame: {}'.format(d_path))
+        print('...({})Generating images per frame: {}'.format(split,d_path))
         input_video = os.path.join(d_path,_FILE_VIDEO)
         
         # Save frames only from the selected time frames
@@ -268,7 +268,7 @@ def gen_data(split,list_dpath,out_path,fps_in,fps_out,
                             max_boxes_to_draw=None,
                             min_score_thresh=MIN_SCORE,
                             use_normalized_coordinates=True,
-                            line_thickness=8)
+                            line_thickness=2)
                         video_out.append(image_labeled)
                     i_save +=1
             if len(n_frames) == 0:
@@ -279,7 +279,7 @@ def gen_data(split,list_dpath,out_path,fps_in,fps_out,
 
         # ------------------------------ LIDAR ----------------------------------
         # Read LIDAR data and generate point cloud files per frame
-        print('...Generating LIDAR point clouds per frame.')
+        print('...({})Generating LIDAR point clouds per frame.'.format(split))
         input_lidar = os.path.join(d_path,_FILE_LIDAR)
 
         for idx_t, time_stamp in enumerate(time_stamps):
@@ -298,7 +298,7 @@ def gen_data(split,list_dpath,out_path,fps_in,fps_out,
                 lidar_out = lidar_out[:n_frame] # Match frame numbers with images
 
             for ldata in lidar_out:
-                out_lidar = os.path.join(opath_lidar,_FILE_OUT.format(i_save)+'.bin')
+                out_lidar = os.path.join(opath_lidar,_FILE_OUT.format(i_save_lidar)+'.bin')
                 ldata[1].tofile(out_lidar)
                 i_save_lidar += 1
     
@@ -350,11 +350,11 @@ def main(_):
     for split in dict_split.keys():
         base_dpath = os.path.join(out_path,split)
         if not os.path.exists(base_dpath):
-            os.makedirs(base_path)
+            os.makedirs(base_dpath)
 
         # Get list of paths to be used in generating specific split
         list_dpath = dict_split[split]
-        gen_data(split,list_dpath,base_path,FLAGS.fps_in,FLAGS.fps_out,
+        gen_data(split,list_dpath,base_dpath,FLAGS.fps_in,FLAGS.fps_out,
                  category_index=category_index,
                  list_valid_ids=list_valid_ids,
                  is_vout=FLAGS.is_vout,
