@@ -3,10 +3,10 @@ Generating Pedestrian Detection Dataset for CARSTOP Project
 
 Taewan Kim and Micahel Motro, The University of Texas at Austin.
 
-[TensorFlow Object Detection API](https://github.com/tensorflow/models/tree/master/research/object_detection) is used for the developement. If your current path $CURR, please download [tensorflow/models repo](https://github.com/tensorflow/models) (clone repo) as $CURR/models. Then, follow the instructions for installing [object detection API](https://github.com/tensorflow/models/blob/master/research/object_detection/g3doc/installation.md)
+[TensorFlow Object Detection API](https://github.com/tensorflow/models/tree/master/research/object_detection) is used for the developement. If your current path is *CURR*, please download [tensorflow/models repo](https://github.com/tensorflow/models) (clone repo) as *CURR/models*, and follow the instructions for installing [object detection API](https://github.com/tensorflow/models/blob/master/research/object_detection/g3doc/installation.md). Our repo should be placed as *CURR/carstop_ped* to meet the path dependencies.
 
 ## Dataset Directory Structure
-Save data collected from field testings at location *INPUT*. In this directory, you should have the sub folders containing collected data with valid *timestamps.txt* file, and a textfile *data_split.txt* to provide the information of the structure of train/val/test datasets.
+Save collected data from field testings at a certain directory *INPUT*. In this directory, you should have sub folders containing collected data with valid *timestamps.txt* file, and a textfile *data_split.txt* to provide the information of the structure of train/val/test datasets. Detailed structure of the input data folder is explained below:
 ```
 INPUT
     data_split.txt # Text file specifyng the subfolders to be used in train/val/test set
