@@ -19,6 +19,13 @@ from __future__ import division
 from __future__ import print_function
 from past.builtins import xrange
 
+import _init_paths
+from object_detection.utils import label_map_util
+from object_detection.utils import visualization_utils as vis_util
+from object_detection.utils import metrics
+from object_detection.utils import object_detection_evaluation as obj_eval
+from object_detection.core import standard_fields
+
 import os
 import sys
 import numpy as np
@@ -26,10 +33,10 @@ import tensorflow as tf
 from skvideo.io import (vreader,vwrite)
 from skimage.io import imsave, imread
 from matplotlib import pyplot as plt
-
-import _init_paths
-from object_detection.utils import label_map_util
-from object_detection.utils import visualization_utils as vis_util
+import collections
+import json
+import time
+import pandas as pd
 
 from importLidarSimple import read as lread
 
@@ -181,7 +188,22 @@ class Detector:
         boxes, scores, classes, num = self.sess.run(
                         [self.det_boxes, self.det_scores, self.det_classes, self.num_det], 
                         feed_dict={self.image_tensor:image_np_expanded})
-        return boxes, scores, classes, num
+        return boxes, scores, classes, num 
+
+def get_ground_truth(gt_file, cat_idx_map):
+    f = open(gt_file)
+    lines = f.read()
+    l_list = lines.split('\n')
+    l_list = [i for i in l_list if i]
+    bbox = []
+    classes = []
+    for idx, l in enumerate(l_list):
+        l_split = l.split()
+        classes.append(cat_idx_map[l_split[0].strip()])
+        bb = l_split[1:-1]
+        bb = [float(i) for i in bb]
+        bbox.append(bb)
+    return np.array(bbox, dtype='float32'), np.array(classes, dtype='int32')
 
 def gen_data(split, list_dpath, out_path, fps_in, fps_out, 
              category_index=None, list_valid_ids=None, is_vout=False, detector=None):
@@ -190,11 +212,13 @@ def gen_data(split, list_dpath, out_path, fps_in, fps_out,
     opath_image = []
     opath_lidar = []
     opath_label = []
+    opath_metrics = []
     for model_out in out_path:
         print("Model out ", model_out)
         opath_image.append(os.path.join(model_out, 'image'))
         opath_lidar.append(os.path.join(model_out, 'lidar'))
         opath_label.append(os.path.join(model_out, 'label'))
+        opath_metrics.append(os.path.join(model_out, 'metrics'))
         if not os.path.exists(opath_image[-1]):
             os.makedirs(opath_image[-1])
         if not os.path.exists(opath_lidar[-1]):
@@ -217,13 +241,31 @@ def gen_data(split, list_dpath, out_path, fps_in, fps_out,
     if is_vout:
         video_out = [] # Output video with labels
 
-    # map(lambda x: x.load_sess(), detector) # Load tf.Session
-    #print(detector[0].sess)
     for det in detector:
         det.load_sess()
-    print(detector[1].sess)
-    print("Obj Detectors loaded")
-    print('\n<Generating {} set>'.format(split))
+
+    # print("Obj Detectors loaded")
+    # print('\n<Generating {} set>'.format(split))
+
+    # print('\n<Creating evaluator>')
+
+    cat_uidx = 1
+    cat_idx_map = {}
+    idx_idx_map = {}
+    for k,v in category_index.items():
+        if k in list_valid_ids:
+            if v['name'] not in cat_idx_map.keys():
+                cat_idx_map[v['name']] = cat_uidx
+                idx_idx_map[v['id']] = cat_uidx
+                cat_uidx += 1
+            else:
+                idx_idx_map[v['id']] = cat_idx_map[v['name']]
+    cat_out = [{'id':v, 'name':k.strip()} for k,v in cat_idx_map.items()]
+    evaluator = obj_eval.ObjectDetectionEvaluator(cat_out)
+    ground_truth_path = os.path.join(FLAGS.output, 'train/label')
+
+    eval_out = collections.defaultdict(list)
+    eval_summarize_out = {}
 
     for ipath_idx, d_path in enumerate(list_dpath):
         i_save_lidar = i_save # Frame name indexing for LIDAR
@@ -263,14 +305,39 @@ def gen_data(split, list_dpath, out_path, fps_in, fps_out,
                     for idx, det in enumerate(detector):
                         print("Detecting ", opath_image[idx])
                         out_image = os.path.join(opath_image[idx], _FILE_OUT.format(i_save)+'.png')
+                        start = time.time()
                         (boxes,  scores,  classes,  num) = det.detect(image)
+                        end = time.time()
                         classes = np.squeeze(classes).astype(np.int32)
                         # Select only valid classes
                         idx_consider = [cid in list_valid_ids for cid in classes]
                         classes = classes[idx_consider]
                         boxes = np.squeeze(boxes)[idx_consider, :]
                         scores = np.squeeze(scores)[idx_consider]
-                        
+
+                        # Evaluation
+                        dt_classes = np.array([idx_idx_map[i] for i in classes])
+                        ground_truth_label = os.path.join(ground_truth_path, _FILE_OUT.format(i_save)+'.txt')
+                        gt_bbox, gt_classes = get_ground_truth(ground_truth_label, cat_idx_map)
+                        ground_dict = {standard_fields.InputDataFields.groundtruth_boxes: gt_bbox, standard_fields.InputDataFields.groundtruth_classes: gt_classes}
+                        det_dict = {standard_fields.DetectionResultFields.detection_boxes: boxes[:len(gt_classes)], standard_fields.DetectionResultFields.detection_scores: scores[:len(gt_classes)], standard_fields.DetectionResultFields.detection_classes: dt_classes[:len(gt_classes)]}
+                        eval_label = os.path.join(opath_image[idx], _FILE_OUT.format(i_save))
+                        evaluator.add_single_ground_truth_image_info(eval_label, ground_dict)
+                        evaluator.add_single_detected_image_info(eval_label, det_dict)
+                        curr_out = evaluator.evaluate()
+                        curr_out['Speed'] = end - start
+                        eval_out[opath_metrics[idx]].append(curr_out)
+                        for k,v in curr_out.items():
+                            if opath_metrics[idx] in eval_summarize_out.keys():
+                                if k in eval_summarize_out[opath_metrics[idx]].keys():
+                                    eval_summarize_out[opath_metrics[idx]][k] += v 
+                                else:
+                                    eval_summarize_out[opath_metrics[idx]][k] = v 
+                            else:
+                                eval_summarize_out[opath_metrics[idx]] = {}
+                                eval_summarize_out[opath_metrics[idx]][k] = v 
+                        # print(eval_summarize_out)
+
                         # Save bounding boxes with score
                         out_label = os.path.join(opath_label[idx], _FILE_OUT.format(i_save)+'.txt')
                         with open(out_label, 'w') as f_label:
@@ -319,33 +386,37 @@ def gen_data(split, list_dpath, out_path, fps_in, fps_out,
                    inputdict={'-r':str(fps_out)}, 
                    outputdict={'-r':str(fps_out)})
 
+        for k,v in eval_out.items():
+            print('Writing metrics for ' + k)
+            f = open(k,'w')
+            f.write(json.dumps(v))
+            f.close()
+
+        for k,v in eval_summarize_out.items():
+            print('Writing summary for ' + k + '_summary')
+            vavg = {i:(j/i_frame) for i,j in v.items()}
+            f = open(k + '_summary', 'w')
+            f.write(json.dumps(vavg))
+            f.close()
+
+        print('Writing cumulative summary')  
+        summary = []
+        columns = []
+        for k,v in eval_summarize_out.items():
+            summary.append([])
+            summary[-1].append(k)
+            summary[-1].extend([(j/i_frame) for _,j in v.items()])
+        v = eval_summarize_out[eval_summarize_out.keys()[0]]
+        columns = [i for i,_ in v.items()]
+        columns.insert(0, 'model')
+        print(summary)
+        print(columns)
+
+        df = pd.DataFrame.from_records(summary, columns=columns)
+        df.to_csv(os.path.join(FLAGS.output,'summary'))
+
     for det in detector:
         det.close_sess()
-        # if is_lidar:
-        #     # ------------------------------ LIDAR ----------------------------------
-        #     # Read LIDAR data and generate point cloud files per frame
-        #     print('...({})Generating LIDAR point clouds per frame.'.format(split))
-        #     input_lidar = os.path.join(d_path, _FILE_LIDAR)
-
-        #     for idx_t,  time_stamp in enumerate(time_stamps):
-        #         print('   LIDAR Start: {},  Duration: {} (secs)'.format(
-        #                         time_stamp[0], 
-        #                         time_stamp[2]))
-
-        #         # Read LIDAR file
-        #         start_time = tstamp2sec(time_stamp[0])
-        #         lidar_out = lread(input_lidar, start_time, start_time+time_stamp[2])
-        #         if len(n_frames)>0:
-        #             n_frame = n_frames[idx_t]
-        #             assert n_frame <= len(lidar_out),  \
-        #                 "* Number of frames in video is larger than the ones in LIDAR! {}".format(
-        #                                 input_lidar)
-        #             lidar_out = lidar_out[:n_frame] # Match frame numbers with images
-
-        #         for ldata in lidar_out:
-        #             out_lidar = os.path.join(opath_lidar, _FILE_OUT.format(i_save_lidar)+'.bin')
-        #             ldata[1].tofile(out_lidar)
-        #             i_save_lidar += 1
 
 def get_model(model_name):
     if model_name == None:
@@ -408,6 +479,10 @@ def main(_):
     for cid in list_valid_ids:
         category_index[cid]['name'] = convert_label(FLAGS.data_pre, 
                                                     category_index[cid]['name'])
+
+    print(list_valid_ids)
+    print(category_index)
+    # return
 
     # Load object detection model
     if FLAGS.is_compare:
