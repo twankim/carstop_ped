@@ -11,7 +11,8 @@ python cstopp_gen_video.py \
         --model=${FILE_MODEL} \
         --label=${LABEL_MAP} \
         --num_classes=${NUM_CLASS} \
-        --input=/data/cstopp/video_accord
+        --input=/data/cstopp/video_accord \
+        --is_rotate=True
 
 python cstopp_gen_video.py \
         --data_pre=${DATA_PRE} \

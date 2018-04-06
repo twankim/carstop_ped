@@ -55,8 +55,11 @@ tf.app.flags.DEFINE_string(
 tf.app.flags.DEFINE_string(
     'input', 'data',
     'path to the directory containing data folders. '
-    'Each data folder has cam.mkv,lidar.dat, and timestamps.txt'
-    'This path also includes a txt file specifying split (train/val/test)')
+    'Each data folder has cam.mp4')
+
+tf.app.flags.DEFINE_boolean(
+    'is_rotate', False,
+    'Whether to rotate 180 degree or not (For Accord, True)')
 
 FLAGS = tf.app.flags.FLAGS
 
@@ -117,8 +120,8 @@ class Detector:
                         feed_dict={self.image_tensor:image_np_expanded})
         return boxes,scores,classes,num
 
-def gen_video(list_dpath,fps_in,fps_out,
-             category_index=None,list_valid_ids=None,is_vout=False,detector=None):
+def gen_video(list_dpath,category_index=None,list_valid_ids=None,
+              detector=None,is_rotate=False):
 
     detector.load_sess() # Load tf.Session
     for d_path in list_dpath:
@@ -126,12 +129,15 @@ def gen_video(list_dpath,fps_in,fps_out,
 
         # ------------------------------ IMAGE ----------------------------------
         # Read video file and do object detection for generating images per frame
-        print('...Processing: {}'.format(split,d_path))
+        print('...Processing: {}'.format(d_path))
         input_video = os.path.join(d_path,_FILE_VIDEO)
         
         videogen = vreader(input_video)
 
         for i_frame,image in enumerate(videogen):
+            # Rotate image
+            if is_rotate:
+                image = np.rot90(image,k=2,axes=(0,1))
             # ----- Process object detection -----
             (boxes, scores, classes, num) = detector.detect(image)
             classes = np.squeeze(classes).astype(np.int32)
@@ -154,7 +160,9 @@ def gen_video(list_dpath,fps_in,fps_out,
                 min_score_thresh=MIN_SCORE,
                 use_normalized_coordinates=True,
                 line_thickness=2)
+            print('   {} Detection is done.'.format(i_frame))
             vwriter.writeFrame(image_labeled)
+            print('   {} Writing is done.'.format(i_frame))
         vwriter.close()
     detector.close_sess() # Close tf.Session
 
@@ -164,9 +172,6 @@ def main(_):
 
     assert os.path.exists(FLAGS.input),\
         "Directory {} doesn't exist! (Data folder)".format(FLAGS.input)
-
-    assert os.path.exists(FLAGS.f_split),\
-        "File {} doesn't exist! (txt file for data split)".format(FLAGS.f_split)
 
     # Define Paths for data generation
     out_path = FLAGS.output if FLAGS.output else FLAGS.input
@@ -195,11 +200,10 @@ def main(_):
 
     # Generate detection video
     gen_video(list_dpath,
-              FLAGS.fps_in,
-              FLAGS.fps_out,
               category_index=category_index,
               list_valid_ids=list_valid_ids,
-              detector=obj_detector)
+              detector=obj_detector,
+              is_rotate=FLAGS.is_rotate)
 
 if __name__ == '__main__':
     tf.app.run()
