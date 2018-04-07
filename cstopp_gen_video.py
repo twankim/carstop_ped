@@ -160,9 +160,7 @@ def gen_video(list_dpath,category_index=None,list_valid_ids=None,
                 min_score_thresh=MIN_SCORE,
                 use_normalized_coordinates=True,
                 line_thickness=2)
-            print('   {} Detection is done.'.format(i_frame))
             vwriter.writeFrame(image_labeled)
-            print('   {} Writing is done.'.format(i_frame))
         vwriter.close()
     detector.close_sess() # Close tf.Session
 
