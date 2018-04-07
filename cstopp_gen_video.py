@@ -57,6 +57,14 @@ tf.app.flags.DEFINE_string(
     'path to the directory containing data folders. '
     'Each data folder has cam.mp4')
 
+tf.app.flags.DEFINE_integer(
+    'fps_in', 30,
+    'frame rate of the video (original)')
+
+tf.app.flags.DEFINE_integer(
+    'fps_out', 30,
+    'frame rate of the video (output)')
+
 tf.app.flags.DEFINE_boolean(
     'is_rotate', False,
     'Whether to rotate 180 degree or not (For Accord, True)')
@@ -125,14 +133,18 @@ def gen_video(list_dpath,category_index=None,list_valid_ids=None,
 
     detector.load_sess() # Load tf.Session
     for d_path in list_dpath:
-        vwriter = FFmpegWriter(os.path.join(d_path,'cam_labeled.mp4'))
+        vwriter = FFmpegWriter(os.path.join(d_path,'cam_labeled.mp4'),
+                               inputdict={'-r':str(fps_out)},
+                               outputdict={'-r':str(fps_out)})
 
         # ------------------------------ IMAGE ----------------------------------
         # Read video file and do object detection for generating images per frame
         print('...Processing: {}'.format(d_path))
         input_video = os.path.join(d_path,_FILE_VIDEO)
         
-        videogen = vreader(input_video)
+        videogen = vreader(input_video,
+                           inputdict={'-r':str(fps_in)},
+                           outputdict={'-r':str(fps_in)})
 
         for i_frame,image in enumerate(videogen):
             # Rotate image
