@@ -128,7 +128,8 @@ class Detector:
                         feed_dict={self.image_tensor:image_np_expanded})
         return boxes,scores,classes,num
 
-def gen_video(list_dpath,category_index=None,list_valid_ids=None,
+def gen_video(list_dpath,fps_in=30,fps_out=30,
+              category_index=None,list_valid_ids=None,
               detector=None,is_rotate=False):
 
     detector.load_sess() # Load tf.Session
@@ -210,6 +211,8 @@ def main(_):
 
     # Generate detection video
     gen_video(list_dpath,
+              fps_in=FLAGS.fps_in,
+              fps_out=FLAGS.fps_out,
               category_index=category_index,
               list_valid_ids=list_valid_ids,
               detector=obj_detector,
