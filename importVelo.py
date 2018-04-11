@@ -64,11 +64,11 @@ def processLidarPacket(msg, last_angle = 0):
                              (fires < max_distance_to_keep)
         
     time = longStruct.unpack(msg[1200:1204])[0] * time_convert
-    return xyz[:cut_idx][keep[:cut_idx]],
-           cut,
-           xyz[cut_idx:][keep[cut_idx:]],
-           time,
-           angle
+    return (xyz[:cut_idx][keep[:cut_idx]],
+            cut,
+            xyz[cut_idx:][keep[cut_idx:]],
+            time,
+            angle)
 
 
 """ df = a readable object, ie from open()
@@ -137,7 +137,7 @@ def saveKRotations(filename, nameFun, starttime, k):
 def loadKrotations(filename,start_time,k,r_fps):
     list_points = []
     with open(filename,'rb') as df:
-        data, data_post, angle = singleRotation(df,startime)
+        data, data_post, angle = singleRotation(df,start_time)
         list_points.append(data)
 
         i_frame = 1

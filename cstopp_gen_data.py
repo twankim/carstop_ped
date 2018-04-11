@@ -245,6 +245,7 @@ def gen_data(split,list_dpath,out_path,fps_out,
             time_stamps = map(lambda x: convert_timestamps(x),f_time)
 
         input_lidar = os.path.join(d_path,_FILE_LIDAR)
+        print(input_lidar)
 
         # ------------------------------ IMAGE ----------------------------------
         # Read video file and do object detection for generating images per frame
@@ -313,7 +314,7 @@ def gen_data(split,list_dpath,out_path,fps_out,
                     i_save +=1
 
             # Read lidar points
-            start_time = tstamp2sec(time_stamp[0])+dict_cfg['f_video']
+            start_time = tstamp2sec(time_stamp[0])+dict_cfg['time_lidar']
             list_points = loadKrotations(input_lidar,start_time,
                                          i_save-sum_frames,r_fps_lidar)
 
