@@ -147,6 +147,7 @@ def loadKrotations(filename,start_time,k,r_fps):
         while count < k:
             msg = df.read(1206)
             data_pre, cut, data_post, time,angle = processLidarPacket(msg,angle)
+            rotation.append(data_pre)
             if cut:
                 data = np.concatenate(rotation,axis=0)
                 rotation = [data_post]
