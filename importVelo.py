@@ -135,6 +135,7 @@ def saveKRotations(filename, nameFun, starttime, k):
                 count += 1
 
 def loadKrotations(filename,start_time,k,r_fps):
+    start_time = start_time % 3600 # Velodyne returns only mm:ss
     list_points = []
     with open(filename,'rb') as df:
         data, data_post, angle = singleRotation(df,start_time)

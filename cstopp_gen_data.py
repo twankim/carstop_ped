@@ -249,7 +249,8 @@ def gen_data(split,list_dpath,out_path,fps_out,
 
         # ------------------------------ IMAGE ----------------------------------
         # Read video file and do object detection for generating images per frame
-        print('...({})Generating images per frame: {}'.format(split,d_path))
+        print('...({})Generating images/points clouds per frame: {}'.format(
+                        split,d_path))
         input_video = os.path.join(d_path,_FILE_VIDEO)
         
         # Save frames only from the selected time frames
