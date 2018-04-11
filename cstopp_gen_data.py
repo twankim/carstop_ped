@@ -22,7 +22,7 @@ import os
 import sys
 import numpy as np
 import tensorflow as tf
-from skvideo.io import (vreader,vwrite)
+from skvideo.io import (vreader,FFmpegWriter)
 from skimage.io import imsave
 from matplotlib import pyplot as plt
 
@@ -30,9 +30,9 @@ import _init_paths
 from object_detection.utils import label_map_util
 from object_detection.utils import visualization_utils as vis_util
 
-from importLidarSimple import read as lread
+from importVelo import loadKrotations
 
-MIN_SCORE = .5
+MIN_SCORE = .70
 
 tf.app.flags.DEFINE_string(
     'data_pre', 'coco',
@@ -59,16 +59,12 @@ tf.app.flags.DEFINE_string(
 tf.app.flags.DEFINE_string(
     'input', 'data',
     'path to the directory containing data folders. '
-    'Each data folder has cam.mkv,lidar.dat, and timestamps.txt'
+    'Each data folder has cam.mkv(or cam.mp4), lidar.dat, and timestamps.txt'
     'This path also includes a txt file specifying split (train/val/test)')
 
 tf.app.flags.DEFINE_string(
     'f_split', 'None',
     'path to the txt file specifying the data split.')
-
-tf.app.flags.DEFINE_integer(
-    'fps_in', 10,
-    'frame rate of the video (original)')
 
 tf.app.flags.DEFINE_integer(
     'fps_out', 10,
@@ -79,9 +75,8 @@ tf.app.flags.DEFINE_boolean(
 
 FLAGS = tf.app.flags.FLAGS
 
-_FILE_VIDEO = 'cam.mkv'
-_FILE_LIDAR = 'lidar.dat'
 _FILE_TIMES = 'timestamps.txt'
+_FILE_CONFIFGS = 'configs.txt'
 _FILE_OUT = '{:06d}' # Format of output files
 
 def get_split_dict(f_split,in_path):
@@ -92,16 +87,42 @@ def get_split_dict(f_split,in_path):
         for line in f_s:
             tmp_list = line.split('\n')[0].split(' ')
             split = tmp_list[0]
+            idx_split = split_list.index(split)
             assert split in split_list, \
-                'Error in {} file! {} split is not supported'.format(f_split,split)
-            assert not split_bool[split_list.index(split)], \
-                'Duplicate in {} file! ({}) already visited.'.format(f_split,split)
+                'Error in {} file! {} split is not supported'.format(
+                    f_split,split)
+            assert not split_bool[idx_split], \
+                'Duplicate in {} file! ({}) already visited.'.format(
+                    f_split,split)
             dict_split[split] = list(set(tmp_list[1:]))
             # Combine with the input path
             dict_split[split] = [os.path.join(in_path,dpath) \
                                  for dpath in dict_split[split]]
-            split_bool[split_list.index(split)] = True
+            split_bool[idx_split] = True
     return dict_split
+
+def get_configs(f_configs):
+    dict_cfg = {}
+    cfg_list = ['f_video','f_lidar','fps_video','fps_lidar',
+                'time_lidar','time_tower']
+    cfg_type = [str,str,int,int,float,float]
+    cfg_bool = [False] * len(cfg_list)
+
+    # Read config file
+    with open (f_configs,'r') as f_c:
+        for line in f_c:
+            tmp_list = line.split('\n')[0].split(' ')
+            key_cfg = tmp_list[0]
+            idx_cfg = cfg_list.index(key_cfg)
+            assert key_cfg in cfg_list, \
+                'Error in {} file! {} is not supported'.format(
+                    f_configs,key_cfg)
+            assert not cfg_bool[idx_cfg], \
+                'Duplicate in {} file! ({}) already visited.'.format(
+                    f_configs,key_cfg)
+            dict_cfg[key_cfg] = cfg_type[idx_cfg](tmp_list[1])
+            cfg_bool[idx_cfg] = True
+    return dict_cfg
 
 def get_valid_label_list(data_pre):
     if data_pre == 'coco':
@@ -175,7 +196,7 @@ class Detector:
                         feed_dict={self.image_tensor:image_np_expanded})
         return boxes,scores,classes,num
 
-def gen_data(split,list_dpath,out_path,fps_in,fps_out,
+def gen_data(split,list_dpath,out_path,fps_out,
              category_index=None,list_valid_ids=None,is_vout=False,detector=None):
     # Create directories to save image, lidar, and label
     opath_image = os.path.join(out_path,'image')
@@ -190,22 +211,40 @@ def gen_data(split,list_dpath,out_path,fps_in,fps_out,
 
     i_save = 0 # Frame name indexing
     sum_frames = 0 # Current total number of frames
-    r_fps = fps_in/fps_out # ratio of input/output fps
-    assert (fps_in % fps_out) == 0,\
-            "Input FPS {} must be divisible by the Target FPS".format(fps_in)
     if is_vout:
-        video_out = [] # Output video with labels
+        vwriter = FFmpegWriter(os.path.join(out_path,split+'_labeled.mp4'),
+                               inputdict={'-r':str(fps_out)},
+                               outputdict={'-r':str(fps_out)})
 
     detector.load_sess() # Load tf.Session
     print('\n<Generating {} set>'.format(split))
+    # Iterate over different tasks
     for d_path in list_dpath:
+        # Load configurations for each task
+        dict_cfg = get_configs(os.path.join(d_path,_FILE_CONFIFGS))
+        _FILE_VIDEO = dict_cfg['f_video']
+        _FILE_LIDAR = dict_cfg['f_lidar']
+        fps_cam = dict_cfg['fps_video']
+        fps_lidar = dict_cfg['fps_lidar']
+
         i_save_lidar = i_save # Frame name indexing for LIDAR
         n_frames = [] # Number of frames to be saved
+
+        r_fps_cam = fps_cam/fps_out # ratio of input/output fps
+        assert (fps_cam % fps_out) == 0,\
+            "Input FPS (Cam) {} must be divisible by the Target FPS {}".format(
+                fps_cam,fps_out)
+        r_fps_lidar = fps_lidar/fps_out # ratio of input/output fps
+        assert (fps_lidar % fps_out) == 0,\
+            "Input FPS (Lidar) {} must be divisible by the Target FPS {}".format(
+                fps_lidar,fps_out)
 
         # Load time stamps
         input_time = os.path.join(d_path,_FILE_TIMES)
         with open(input_time,'r') as f_time:
             time_stamps = map(lambda x: convert_timestamps(x),f_time)
+
+        input_lidar = os.path.join(d_path,_FILE_LIDAR)
 
         # ------------------------------ IMAGE ----------------------------------
         # Read video file and do object detection for generating images per frame
@@ -215,9 +254,9 @@ def gen_data(split,list_dpath,out_path,fps_in,fps_out,
         # Save frames only from the selected time frames
         for time_stamp in time_stamps:
             videogen = vreader(input_video,
-                               num_frames=int(time_stamp[2]*fps_in),
-                               inputdict={'-r':str(fps_in)},
-                               outputdict={'-r':str(fps_in),
+                               num_frames=int(time_stamp[2]*fps_cam),
+                               inputdict={'-r':str(fps_cam)},
+                               outputdict={'-r':str(fps_cam),
                                            '-ss':time_stamp[0],
                                            '-t':time_stamp[1]})
             print('   Image&Label Start: {}, Duration: {} (secs)'.format(
@@ -225,9 +264,11 @@ def gen_data(split,list_dpath,out_path,fps_in,fps_out,
                             time_stamp[2]))
 
             for i_frame,image in enumerate(videogen):
-                if i_frame % r_fps == 0:
-                    out_image = os.path.join(opath_image,_FILE_OUT.format(i_save)+'.png')
-                    out_label = os.path.join(opath_label,_FILE_OUT.format(i_save)+'.txt')
+                if i_frame % r_fps_cam == 0:
+                    out_image = os.path.join(opath_image,
+                                             _FILE_OUT.format(i_save)+'.png')
+                    out_label = os.path.join(opath_label,
+                                             _FILE_OUT.format(i_save)+'.txt')
                     # Save image frame
                     imsave(out_image,image)
 
@@ -268,44 +309,53 @@ def gen_data(split,list_dpath,out_path,fps_in,fps_out,
                             min_score_thresh=MIN_SCORE,
                             use_normalized_coordinates=True,
                             line_thickness=2)
-                        video_out.append(image_labeled)
+                        vwriter.writeFrame(image_labeled)
                     i_save +=1
+
+            # Read lidar points
+            start_time = tstamp2sec(time_stamp[0])+dict_cfg['f_video']
+            list_points = loadKrotations(input_lidar,start_time,
+                                         i_save-sum_frames,r_fps_lidar)
+
+            for points in list_points:
+                out_lidar = os.path.join(opath_lidar,
+                                         _FILE_OUT.format(i_save_lidar)+'.bin')
+                points.tofile(out_lidar)
+                i_save_lidar += 1
+
             n_frames.append(i_save-sum_frames)
             sum_frames = i_save
 
-        # ------------------------------ LIDAR ----------------------------------
-        # Read LIDAR data and generate point cloud files per frame
-        print('...({})Generating LIDAR point clouds per frame.'.format(split))
-        input_lidar = os.path.join(d_path,_FILE_LIDAR)
+        # # ------------------------------ LIDAR ----------------------------------
+        # # Read LIDAR data and generate point cloud files per frame
+        # print('...({})Generating LIDAR point clouds per frame.'.format(split))
+        # input_lidar = os.path.join(d_path,_FILE_LIDAR)
 
-        for idx_t, time_stamp in enumerate(time_stamps):
-            print('   LIDAR Start: {}, Duration: {} (secs)'.format(
-                            time_stamp[0],
-                            time_stamp[2]))
+        # for idx_t, time_stamp in enumerate(time_stamps):
+        #     print('   LIDAR Start: {}, Duration: {} (secs)'.format(
+        #                     time_stamp[0],
+        #                     time_stamp[2]))
 
-            # Read LIDAR file
-            start_time = tstamp2sec(time_stamp[0])
-            lidar_out = lread(input_lidar,start_time,start_time+time_stamp[2])
-            if len(n_frames)>0:
-                n_frame = n_frames[idx_t]
-                assert n_frame <= len(lidar_out), \
-                    "* Number of frames in video is larger than the ones in LIDAR! {}".format(
-                                    input_lidar)
-                lidar_out = lidar_out[:n_frame] # Match frame numbers with images
+        #     # Read LIDAR file
+        #     start_time = tstamp2sec(time_stamp[0])
+        #     lidar_out = lread(input_lidar,start_time,start_time+time_stamp[2])
+        #     if len(n_frames)>0:
+        #         n_frame = n_frames[idx_t]
+        #         assert n_frame <= len(lidar_out), \
+        #             "* Number of frames in video is larger than the ones in LIDAR! {}".format(
+        #                             input_lidar)
+        #         lidar_out = lidar_out[:n_frame] # Match frame numbers with images
 
-            for ldata in lidar_out:
-                out_lidar = os.path.join(opath_lidar,_FILE_OUT.format(i_save_lidar)+'.bin')
-                ldata[1].tofile(out_lidar)
-                i_save_lidar += 1
+        #     for ldata in lidar_out:
+        #         out_lidar = os.path.join(opath_lidar,_FILE_OUT.format(i_save_lidar)+'.bin')
+        #         ldata[1].tofile(out_lidar)
+        #         i_save_lidar += 1
     
     detector.close_sess() # Close tf.Session
     
-    # Save output video with bounding boxes
+    # Close video writer for video with bounding boxes
     if is_vout:
-        vwrite(os.path.join(out_path,split+'_labeled.mp4'),
-               np.array(video_out),
-               inputdict={'-r':str(fps_out)},
-               outputdict={'-r':str(fps_out)})
+        vwriter.close()
 
 def main(_):
     if tf.__version__ < '1.4.0':
@@ -350,7 +400,7 @@ def main(_):
 
         # Get list of paths to be used in generating specific split
         list_dpath = dict_split[split]
-        gen_data(split,list_dpath,base_dpath,FLAGS.fps_in,FLAGS.fps_out,
+        gen_data(split,list_dpath,base_dpath,FLAGS.fps_out,
                  category_index=category_index,
                  list_valid_ids=list_valid_ids,
                  is_vout=FLAGS.is_vout,
