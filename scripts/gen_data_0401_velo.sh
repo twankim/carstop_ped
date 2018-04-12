@@ -9,6 +9,7 @@ INPUT=/data/cstopp/accord_040118
 OUTPUT=/data/cstopp
 FILE_SPLIT=/data/cstopp/data_split.txt
 FPS_OUT=10
+IS_ROTATE=True
 
 python cstopp_gen_data.py \
         --data_pre=${DATA_PRE} \
@@ -18,4 +19,5 @@ python cstopp_gen_data.py \
         --input=${INPUT} \
         --output=${OUTPUT} \
         --f_split=${FILE_SPLIT} \
-        --fps_out=${FPS_OUT}
+        --fps_out=${FPS_OUT} \
+        --is_rotate=${IS_ROTATE}

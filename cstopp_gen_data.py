@@ -73,6 +73,9 @@ tf.app.flags.DEFINE_integer(
 tf.app.flags.DEFINE_boolean(
     'is_vout', True, 'Generate a video with bounding boxes')
 
+tf.app.flags.DEFINE_boolean(
+    'is_rotate', True, 'Whether to rotate 180 degree or not (For Accord, True)')
+
 FLAGS = tf.app.flags.FLAGS
 
 _FILE_TIMES = 'timestamps.txt'
@@ -197,7 +200,8 @@ class Detector:
         return boxes,scores,classes,num
 
 def gen_data(split,list_dpath,out_path,fps_out,
-             category_index=None,list_valid_ids=None,is_vout=False,detector=None):
+             category_index=None,list_valid_ids=None,is_vout=False,
+             detector=None,is_rotate=False):
     # Create directories to save image, lidar, and label
     opath_image = os.path.join(out_path,'image')
     opath_lidar = os.path.join(out_path,'lidar')
@@ -266,6 +270,8 @@ def gen_data(split,list_dpath,out_path,fps_out,
                             time_stamp[2]))
 
             for i_frame,image in enumerate(videogen):
+                if is_rotate:
+                    image = np.rot90(image,k=2,axes=(0,1))
                 if i_frame % r_fps_cam == 0:
                     out_image = os.path.join(opath_image,
                                              _FILE_OUT.format(i_save)+'.png')
@@ -406,7 +412,8 @@ def main(_):
                  category_index=category_index,
                  list_valid_ids=list_valid_ids,
                  is_vout=FLAGS.is_vout,
-                 detector=obj_detector)
+                 detector=obj_detector,
+                 is_rotate=FLAGS.is_rotate)
     
 if __name__ == '__main__':
     tf.app.run()

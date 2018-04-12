@@ -106,9 +106,9 @@ def singleRotation(df, sweeptime):
             
             else:
                 rotation = [data_post]
-                if sweeptime < time + .1:
+                if time > sweeptime - .15:
                     savenext = True
-                assert time < sweeptime + .1
+                assert time < sweeptime
 
 """ example of how to use functions
     filename = str
