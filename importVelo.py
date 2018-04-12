@@ -110,30 +110,15 @@ def singleRotation(df, sweeptime):
                     savenext = True
                 assert time < sweeptime
 
-""" example of how to use functions
-    filename = str
-    nameFun = function taking count integer, giving str
-    starttime = float in s,
-    k = int
+""" 
+    filename: name of lidar file to read
+    start_time: start time of the lidar to read (in seconds, UTC)
+    k: Number of frames to load
+    r_fps: Rate for loading rate. 
+        If Lidar is 10fps, and target frequency is 5fps,
+        r_fps is 10/5 = 2
+        Load a rotation of lidar every 2 frames.
 """
-def saveKRotations(filename, nameFun, starttime, k):
-    with open(filename,'rb') as df:
-        data, data_post, angle = singleRotation(df, starttime)
-        data.tofile(nameFun(0))
-        
-        count = 1
-        rotation = [data_post]
-        
-        while count < k:
-            msg = df.read(1206)
-            data_pre, cut, data_post, time, angle = processLidarPacket(msg, angle)
-            rotation.append(data_pre)
-            if cut:
-                data = np.concatenate(rotation, axis=0)
-                data.tofile(nameFun(count))
-                rotation = [data_post]
-                count += 1
-
 def loadKrotations(filename,start_time,k,r_fps):
     start_time = start_time % 3600 # Velodyne returns only mm:ss
     list_points = []
@@ -156,54 +141,3 @@ def loadKrotations(filename,start_time,k,r_fps):
                     count += 1
                 i_frame +=1
     return list_points
-            
-
-#def saveSingleRotation(filename, savename, sweeptime):
-#    with open(filename,'rb') as df:
-#    
-#        msg = df.read(1206)
-#        data_pre, cut, data_post, time, last_angle = processLidarPacket(msg, 0.)
-#        print("first time {:.0f}".format(time))
-##        msg2 = df.read(1206)
-##        data_pre, cut, data_post, time2, last_angle = processLidarPacket(msg2, 0.)
-##        print("difference {:.4f}".format(time2 - time))
-#        if sweeptime < time - 600: # hour off
-#            time -= 3600
-#        distance_in_bits = int(max((sweeptime - time) / .0014 - 10, 0)) * 1206
-#        #print distance_in_bits
-#        df.seek(distance_in_bits)
-#        
-#        rotation = []
-#        angle = 0.
-#        firstcut = False
-#        
-#        while True:
-#            msg = df.read(1206)
-#            if len(msg) != 1206:
-#                assert len(msg) == 0, "len {:d} time {:.0f}".format(len(msg), time)
-#                print("ended too early, time {:.0f}".format(time))
-#                break
-#            data_pre, cut, data_post, time, angle = processLidarPacket(msg, angle)
-#            rotation.append(data_pre)
-#            if cut: # rotation completed
-#                if firstcut:    
-#                    data = np.concatenate(rotation, axis=0)
-#                    print(data.shape)
-#                    data.tofile(savename)
-#                    #np.save(savename, data)
-#                    break
-#                
-#                else:
-#                    rotation = [data_post]
-#                    if sweeptime < time + .1:
-#                        firstcut = True
-                        
-                        
-                        
-                        
-if __name__ == '__main__':
-    assert len(sys.argv) == 4
-    samename = lambda x: sys.argv[2]
-    saveKRotations(sys.argv[1], samename, float(sys.argv[3]), 1)
-#    saveSingleRotation("/media/motrom/CarstopData3/4_1_18/Accord lidar/velocalib1.dat",
-#                       "lidartest.bin", 1073.)

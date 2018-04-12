@@ -8,7 +8,7 @@ NUM_CLASS=9
 INPUT=/data/cstopp/accord_040118
 OUTPUT=/data/cstopp
 FILE_SPLIT=/data/cstopp/data_split.txt
-FPS_OUT=10
+FPS_OUT=5
 IS_ROTATE=True
 
 python cstopp_gen_data.py \
