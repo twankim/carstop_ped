@@ -10,6 +10,9 @@ OUTPUT=/data/cstopp
 FILE_SPLIT=/data/cstopp/data_split.txt
 FPS_OUT=5
 IS_ROTATE=True
+GEN_DIST=True
+F_INT=configs/velo/calib_intrinsic.txt
+F_EXT=configs/velo/calib_extrinsic.txt
 
 python cstopp_gen_data.py \
         --data_pre=${DATA_PRE} \
@@ -20,4 +23,7 @@ python cstopp_gen_data.py \
         --output=${OUTPUT} \
         --f_split=${FILE_SPLIT} \
         --fps_out=${FPS_OUT} \
-        --is_rotate=${IS_ROTATE}
+        --is_rotate=${IS_ROTATE} \
+        --gen_dist=${GEN_DIST} \
+        --intrinsic_calib_path=${F_INT} \
+        --extrinsic_calib_path=${F_EXT}

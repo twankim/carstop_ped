@@ -28,9 +28,10 @@ from matplotlib import pyplot as plt
 
 import _init_paths
 from object_detection.utils import label_map_util
-from object_detection.utils import visualization_utils as vis_util
 
 from importVelo import loadKrotations
+from config import visualization_utils as vis_util
+from config.utils_data import *
 
 MIN_SCORE = .70
 
@@ -75,6 +76,17 @@ tf.app.flags.DEFINE_boolean(
 
 tf.app.flags.DEFINE_boolean(
     'is_rotate', True, 'Whether to rotate 180 degree or not (For Accord, True)')
+
+tf.app.flags.DEFINE_boolean(
+    'gen_dist', False, 
+    'Whether to generate distance value from LIDAR as ground truth or not.')
+
+tf.app.flags.DEFINE_string('intrinsic_calib_path',
+    'config/velo/calib_intrinsic.txt',
+    'Path to a intrinsic calibration matrix config file.')
+tf.app.flags.DEFINE_string('extrinsic_calib_path',
+    'config/velo/calib_extrinsic.txt',
+    'Path to a extrinsic calibration matrix config file.')
 
 FLAGS = tf.app.flags.FLAGS
 
@@ -201,7 +213,7 @@ class Detector:
 
 def gen_data(split,list_dpath,out_path,fps_out,
              category_index=None,list_valid_ids=None,is_vout=False,
-             detector=None,is_rotate=False):
+             detector=None,is_rotate=False,dict_calib=None):
     # Create directories to save image, lidar, and label
     opath_image = os.path.join(out_path,'image')
     opath_lidar = os.path.join(out_path,'lidar')
@@ -214,7 +226,7 @@ def gen_data(split,list_dpath,out_path,fps_out,
         os.makedirs(opath_label)
 
     i_save = 0 # Frame name indexing
-    sum_frames = 0 # Current total number of frames
+    # sum_frames = 0 # Current total number of frames
     if is_vout:
         vwriter = FFmpegWriter(os.path.join(out_path,split+'_labeled.mp4'),
                                inputdict={'-r':str(fps_out)},
@@ -232,7 +244,6 @@ def gen_data(split,list_dpath,out_path,fps_out,
         fps_lidar = dict_cfg['fps_lidar']
 
         i_save_lidar = i_save # Frame name indexing for LIDAR
-        n_frames = [] # Number of frames to be saved
 
         r_fps_cam = fps_cam/fps_out # ratio of input/output fps
         assert (fps_cam % fps_out) == 0,\
@@ -259,6 +270,23 @@ def gen_data(split,list_dpath,out_path,fps_out,
         
         # Save frames only from the selected time frames
         for time_stamp in time_stamps:
+            # Number of frames to be saved
+            n_frame = int(time_stamp[2]*fps_out)
+
+            # Read lidar points
+            print('   LIDAR Start: {}, Duration: {} (secs)'.format(
+                            time_stamp[0],
+                            time_stamp[2]))
+            start_time = tstamp2sec(time_stamp[0])+dict_cfg['time_lidar']
+            list_points = loadKrotations(input_lidar,start_time,
+                                         n_frame,r_fps_lidar)
+            for points in list_points:
+                out_lidar = os.path.join(opath_lidar,
+                                         _FILE_OUT.format(i_save_lidar)+'.bin')
+                points.tofile(out_lidar)
+                i_save_lidar += 1
+
+            # Read Video file
             videogen = vreader(input_video,
                                num_frames=int(time_stamp[2]*fps_cam),
                                inputdict={'-r':str(fps_cam)},
@@ -268,7 +296,6 @@ def gen_data(split,list_dpath,out_path,fps_out,
             print('   Image&Label Start: {}, Duration: {} (secs)'.format(
                             time_stamp[0],
                             time_stamp[2]))
-
             for i_frame,image in enumerate(videogen):
                 if is_rotate:
                     image = np.rot90(image,k=2,axes=(0,1))
@@ -288,22 +315,45 @@ def gen_data(split,list_dpath,out_path,fps_out,
                     classes = classes[idx_consider]
                     boxes = np.squeeze(boxes)[idx_consider,:]
                     scores = np.squeeze(scores)[idx_consider]
-                    
-                    # Save bounding boxes with score
+
+                    if dict_calib:
+                        # Load Corresponding point clouds
+                        points = list_points[i_save-sum_frames]
+                        dists = np.zeros(len(scores))
+                        im_height,im_width = np.shape(image)[:2]
+                        points2D, pointsDist, pointsDistR = project_lidar_to_img(
+                                                    dict_calib,
+                                                    points,
+                                                    im_height,
+                                                    im_width)
+                    else:
+                        dists = None
+                    # Save Labels (including bounding boxes with score)
                     with open(out_label,'w') as f_label:
                         # Format splitted by space.
                         # 1: class
                         # 4: bbox (ymin, xmin, ymax, xmax) (normalized 0~1)
                         # 1: score
-                        for i_obj in xrange(boxes.shape[0]):
+                        # 1: distance (if dict_calib is not None)
+                        for i_obj in range(boxes.shape[0]):
                             if scores[i_obj]>MIN_SCORE:
                                 line = [category_index[classes[i_obj]]['name']]
                                 line += [str(coord) for coord in boxes[i_obj]]
                                 line += [str(scores[i_obj])]
-                                line = ' '.join(line)+'\n'
-                                f_label.write(line)
+                                # Save distance value
+                                if dict_calib:
+                                    dists[i_obj] = dist_from_lidar_bbox(
+                                                            points2D,
+                                                            pointsDist,
+                                                            pointsDistR,
+                                                            boxes[i_obj],
+                                                            im_height,
+                                                            im_width)
+                                    line += [str(dists[i_obj])]
+                                f_label.write(' '.join(line)+'\n')
 
                     # Save video with bounding boxes
+                    #TODO Make video with distance values
                     if is_vout:
                         image_labeled = np.copy(image)
                         # Visualization of the results of a detection.
@@ -313,6 +363,7 @@ def gen_data(split,list_dpath,out_path,fps_out,
                             classes,
                             scores,
                             category_index,
+                            dists=dists,
                             max_boxes_to_draw=None,
                             min_score_thresh=MIN_SCORE,
                             use_normalized_coordinates=True,
@@ -320,44 +371,19 @@ def gen_data(split,list_dpath,out_path,fps_out,
                         vwriter.writeFrame(image_labeled)
                     i_save +=1
 
-            # Read lidar points
-            start_time = tstamp2sec(time_stamp[0])+dict_cfg['time_lidar']
-            list_points = loadKrotations(input_lidar,start_time,
-                                         i_save-sum_frames,r_fps_lidar)
+            # # Read lidar points
+            # start_time = tstamp2sec(time_stamp[0])+dict_cfg['time_lidar']
+            # list_points = loadKrotations(input_lidar,start_time,
+            #                              i_save-sum_frames,r_fps_lidar)
 
-            for points in list_points:
-                out_lidar = os.path.join(opath_lidar,
-                                         _FILE_OUT.format(i_save_lidar)+'.bin')
-                points.tofile(out_lidar)
-                i_save_lidar += 1
+            # for points in list_points:
+            #     out_lidar = os.path.join(opath_lidar,
+            #                              _FILE_OUT.format(i_save_lidar)+'.bin')
+            #     points.tofile(out_lidar)
+            #     i_save_lidar += 1
 
-            n_frames.append(i_save-sum_frames)
+            # n_frames.append(i_save-sum_frames)
             sum_frames = i_save
-
-        # # ------------------------------ LIDAR ----------------------------------
-        # # Read LIDAR data and generate point cloud files per frame
-        # print('...({})Generating LIDAR point clouds per frame.'.format(split))
-        # input_lidar = os.path.join(d_path,_FILE_LIDAR)
-
-        # for idx_t, time_stamp in enumerate(time_stamps):
-        #     print('   LIDAR Start: {}, Duration: {} (secs)'.format(
-        #                     time_stamp[0],
-        #                     time_stamp[2]))
-
-        #     # Read LIDAR file
-        #     start_time = tstamp2sec(time_stamp[0])
-        #     lidar_out = lread(input_lidar,start_time,start_time+time_stamp[2])
-        #     if len(n_frames)>0:
-        #         n_frame = n_frames[idx_t]
-        #         assert n_frame <= len(lidar_out), \
-        #             "* Number of frames in video is larger than the ones in LIDAR! {}".format(
-        #                             input_lidar)
-        #         lidar_out = lidar_out[:n_frame] # Match frame numbers with images
-
-        #     for ldata in lidar_out:
-        #         out_lidar = os.path.join(opath_lidar,_FILE_OUT.format(i_save_lidar)+'.bin')
-        #         ldata[1].tofile(out_lidar)
-        #         i_save_lidar += 1
     
     detector.close_sess() # Close tf.Session
     
@@ -380,6 +406,13 @@ def main(_):
 
     # Read split file
     dict_split = get_split_dict(FLAGS.f_split,FLAGS.input)
+
+    # Load calibration matrices for lidar & Camera
+    if FLAGS.gen_dist:        
+        dict_calib = loadCalib(FLAGS.intrinsic_calib_path,
+                               FLAGS.extrinsic_calib_path)
+    else:
+        dict_calib = None
 
     # Load label map (pretrained model)
     label_map = label_map_util.load_labelmap(FLAGS.label)
@@ -413,7 +446,8 @@ def main(_):
                  list_valid_ids=list_valid_ids,
                  is_vout=FLAGS.is_vout,
                  detector=obj_detector,
-                 is_rotate=FLAGS.is_rotate)
+                 is_rotate=FLAGS.is_rotate,
+                 dict_calib=dict_calib)
     
 if __name__ == '__main__':
     tf.app.run()
