@@ -14,23 +14,24 @@ from sklearn.cluster import DBSCAN
 class CalibFields(object):
     intrinsic = 'P_cam'
     extrinsic = 'R_lidar2cam'
-    
-_D_MAX = 75.0
-_D_MIN = 2.0
-_CMAP = plt.get_cmap('brg')
-_MODE = 'inverse'
 
-init_v_t = np.array([-0.5,0.02,-0.98],dtype=np.float32)
-init_R_rot = np.array([[0., 0., -1.],
-                       [0., -1., 0.],
-                       [1., 0., 0.]],dtype=np.float32)
-# init_R_int = np.array([[898.7, 0., 359., 0.],
-#                        [0., 901.4, 652., 0.],
-#                        [0., 0., 1., 0.]],dtype=np.float32)
+class CalibPrams(object):
+    _D_MAX = 75.0
+    _D_MIN = 2.0
+    _CMAP = plt.get_cmap('brg')
+    _MODE = 'standard'
 
-init_R_int = np.array([[935.0, 0., 359., 0.],
-                       [0., 935., 640., 0.],
-                       [0., 0., 1., 0.]],dtype=np.float32)
+    init_v_t = np.array([-0.5,0.02,-0.98],dtype=np.float32)
+    init_R_rot = np.array([[0., 0., -1.],
+                           [0., -1., 0.],
+                           [1., 0., 0.]],dtype=np.float32)
+    # init_R_int = np.array([[898.7, 0., 359., 0.],
+    #                        [0., 901.4, 652., 0.],
+    #                        [0., 0., 1., 0.]],dtype=np.float32)
+
+    init_R_int = np.array([[935.0, 0., 359., 0.],
+                           [0., 935., 640., 0.],
+                           [0., 0., 1., 0.]],dtype=np.float32)
 
 """ 
 <Coordinate system (Lidar)>
@@ -104,7 +105,7 @@ def project_lidar_to_img(dict_calib,points,im_height,im_width):
     return points2D[idx_in,:], pointsDist[idx_in], pointsDistR[idx_in]
 
 def dist_to_pixel(val_dist, mode,
-                  d_max=_D_MAX, d_min=_D_MIN):
+                  d_max=CalibPrams._D_MAX, d_min=CalibPrams._D_MIN):
     """ Returns pixel value from distance measurment
     Args:
         val_dist: distance value (m)
@@ -117,25 +118,37 @@ def dist_to_pixel(val_dist, mode,
     val_dist = d_max if val_dist>d_max else val_dist if val_dist>d_min else d_min
     if mode == 'standard':
         return np.round(minmax_scale(val_dist,
-                                     d_min,d_max,
+                                     d_max,d_min,
                                      1,255)).astype('uint8')
     elif mode == 'inverse':
         return np.round(minmax_scale(1.0/val_dist,
                                      1.0/d_max,1.0/d_min,
                                      1,255)).astype('uint8')
     else:
-        # Default is inverse
-        return np.round(minmax_scale(1.0/val_dist,
-                                     1.0/d_max,1.0/d_min,
+        # Default is standard
+        return np.round(minmax_scale(val_dist,
+                                     d_max,d_min,
                                      1,255)).astype('uint8')
 
-def points_to_img(points2D,pointsDist,im_height,im_width,mode=_MODE):
+def points_to_img(points2D,pointsDist,im_height,im_width,
+                  mode=CalibPrams._MODE):
     points2D = np.round(points2D).astype('int')
     im_depth = np.zeros((im_height,im_width),dtype=np.uint8)
     for i,point in enumerate(points2D):
         im_depth[point[0],point[1]] = dist_to_pixel(pointsDist[i],mode=mode)
 
     return im_depth.reshape(im_height,im_width,1)
+
+def points_on_img(points2D,pointsDist,image,
+                  mode=CalibPrams._MODE):
+    points2D = np.round(points2D).astype('int')
+    for i,point in enumerate(points2D):
+        pre_pixel = dist_to_pixel(pointsDist[i],mode=mode)
+        image[point[0],point[1],:] = (255*np.array(
+                        CalibPrams._CMAP(pre_pixel/255.0)[:3]))\
+                        .astype(np.uint8)
+
+    return image
 
 def dist_from_lidar_bbox(points2D,pointsDist,pointsDistR,bbox,im_height,im_width):
     """
@@ -209,7 +222,7 @@ def tf_project_lidar_to_img(dict_calib,points,im_height,im_width):
             tf.boolean_mask(pointsDistR,idx_in))
 
 def tf_dist_to_pixel(val_dist, mode,
-                     d_max=_D_MAX, d_min=_D_MIN):
+                     d_max=CalibPrams._D_MAX, d_min=CalibPrams._D_MIN):
     """ Returns pixel value from distance measurment
     Args:
         val_dist: distance value (m)
@@ -235,7 +248,8 @@ def tf_dist_to_pixel(val_dist, mode,
                                              1.0/d_max,1.0/d_min,
                                              1,255)),tf.uint8)
 
-def tf_points_to_img(points2D,pointsDist,im_height,im_width,mode=_MODE):
+def tf_points_to_img(points2D,pointsDist,im_height,im_width,
+                     mode=CalibPrams._MODE):
     pointsPixel = tf_dist_to_pixel(pointsDist,mode=mode)
     points2D_yx = tf.cast(tf.round(points2D),tf.int32)
     img = tf.scatter_nd(points2D_yx,pointsPixel,[im_height,im_width])
@@ -254,7 +268,7 @@ def imlidarwrite(fname,im,im_depth):
     idx_h, idx_w = np.nonzero(im_depth)
     for hi,wi in zip(idx_h,idx_w):
         im_out[hi,wi,:] = (255*np.array(
-                        _CMAP(im_depth[hi,wi]/255.0)[:3]))\
+                        CalibPrams._CMAP(im_depth[hi,wi]/255.0)[:3]))\
                         .astype(np.uint8)
     imsave(fname,im_out)
     print("   ... Write:{}".format(fname))

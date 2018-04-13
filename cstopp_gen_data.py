@@ -231,6 +231,9 @@ def gen_data(split,list_dpath,out_path,fps_out,
         vwriter = FFmpegWriter(os.path.join(out_path,split+'_labeled.mp4'),
                                inputdict={'-r':str(fps_out)},
                                outputdict={'-r':str(fps_out)})
+        vwriter2 = FFmpegWriter(os.path.join(out_path,split+'_lidar_labeled.mp4'),
+                                inputdict={'-r':str(fps_out)},
+                                outputdict={'-r':str(fps_out)})
 
     detector.load_sess() # Load tf.Session
     print('\n<Generating {} set>'.format(split))
@@ -355,8 +358,8 @@ def gen_data(split,list_dpath,out_path,fps_out,
                     # Save video with bounding boxes
                     #TODO Make video with distance values
                     if is_vout:
-                        image_labeled = np.copy(image)
                         # Visualization of the results of a detection.
+                        image_labeled = np.copy(image)
                         vis_util.visualize_boxes_and_labels_on_image_array(
                             image_labeled,
                             boxes,
@@ -369,6 +372,12 @@ def gen_data(split,list_dpath,out_path,fps_out,
                             use_normalized_coordinates=True,
                             line_thickness=2)
                         vwriter.writeFrame(image_labeled)
+
+                        # Visualization of the results of detection with lidar
+                        image_labeled_labeled = points_on_img(points2D,
+                                                              pointsDist,
+                                                              image_labeled)
+                        vwriter2.writeFrame(image_lidar_labeled)
                     i_save +=1
 
             # # Read lidar points
@@ -390,6 +399,7 @@ def gen_data(split,list_dpath,out_path,fps_out,
     # Close video writer for video with bounding boxes
     if is_vout:
         vwriter.close()
+        vwriter2.close()
 
 def main(_):
     if tf.__version__ < '1.4.0':
