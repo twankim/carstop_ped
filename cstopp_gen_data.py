@@ -226,7 +226,7 @@ def gen_data(split,list_dpath,out_path,fps_out,
         os.makedirs(opath_label)
 
     i_save = 0 # Frame name indexing
-    # sum_frames = 0 # Current total number of frames
+    sum_frames = 0 # Current total number of frames
     if is_vout:
         vwriter = FFmpegWriter(os.path.join(out_path,split+'_labeled.mp4'),
                                inputdict={'-r':str(fps_out)},

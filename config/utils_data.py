@@ -159,12 +159,19 @@ def dist_from_lidar_bbox(points2D,pointsDist,pointsDistR,bbox,im_height,im_width
     points2D_obj = points2D[idx_in,:]
     pointsDist_obj = pointsDist[idx_in]
     pointsDistR_obj = pointsDist[idx_in]
-
+    if len(points2D_obj)==0:
+        print('!! Warning: No corresponding point in the box: {} points'.format(
+                len(points2D_obj)))
+        return 0
     # Cluster points based on the z-axis distance
     # Return the average radial distance of points in the cluster with max size
     db = DBSCAN().fit(pointsDist_obj.reshape(-1,1))
     c_labels = db.labels_
     labels_list = list(set(c_labels)-set([-1]))
+    if len(labels_list)==0:
+        print('!! Warning: Clustering failed. {} points'.format(
+                len(points2D_obj)))
+        return np.mean(pointsDistR_obj)
     c_sizes = [sum(c_labels==label) for label in labels_list]
     c_max = labels_list[c_sizes.index(max(c_sizes))]
     return np.mean(pointsDistR_obj[c_labels==c_max])
