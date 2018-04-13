@@ -286,7 +286,6 @@ def gen_data(split,list_dpath,out_path,fps_out,
             print('   LIDAR Start: {}, Duration: {} (secs)'.format(
                             time_stamp[0],
                             time_stamp[1]))
-            #start_time = tstamp2sec(time_stamp[0])+dict_cfg['time_lidar']
             start_time = time_stamp[0]+dict_cfg['time_lidar']
             list_points = loadKrotations(input_lidar,start_time,
                                          n_frame,r_fps_lidar)
@@ -299,10 +298,8 @@ def gen_data(split,list_dpath,out_path,fps_out,
             # Read Video file
             videogen = vreader(input_video,
                                num_frames=int(time_stamp[1]*fps_cam),
-                               inputdict={'-r':str(fps_cam)},
-                               outputdict={'-r':str(fps_cam),
-                                           '-ss':str(time_stamp[0]),
-                                           '-t':str(time_stamp[1])})
+                               inputdict={'-ss':str(time_stamp[0]),
+                                          '-t':str(time_stamp[1])})
             print('   Image&Label Start: {}, Duration: {} (secs)'.format(
                             time_stamp[0],
                             time_stamp[1]))
