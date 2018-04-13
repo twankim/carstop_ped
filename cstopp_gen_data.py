@@ -374,7 +374,7 @@ def gen_data(split,list_dpath,out_path,fps_out,
                         vwriter.writeFrame(image_labeled)
 
                         # Visualization of the results of detection with lidar
-                        image_labeled_labeled = points_on_img(points2D,
+                        image_lidar_labeled = points_on_img(points2D,
                                                               pointsDist,
                                                               image_labeled)
                         vwriter2.writeFrame(image_lidar_labeled)
