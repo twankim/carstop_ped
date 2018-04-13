@@ -84,9 +84,14 @@ tf.app.flags.DEFINE_boolean(
 tf.app.flags.DEFINE_string('intrinsic_calib_path',
     'config/velo/calib_intrinsic.txt',
     'Path to a intrinsic calibration matrix config file.')
+
 tf.app.flags.DEFINE_string('extrinsic_calib_path',
     'config/velo/calib_extrinsic.txt',
     'Path to a extrinsic calibration matrix config file.')
+
+tf.app.flags.DEFINE_float('t_sync_tower',
+    0.0,'Offset time value (s) to be added to the start_time.'
+    'If FPS is different between a tower and a car, start time matters.') 
 
 FLAGS = tf.app.flags.FLAGS
 
@@ -168,10 +173,10 @@ def sec2tstamp(tsec):
     sec = int(tsec % 60)
     return '{:02d}:{:02d}:{:02d}'.format(hh,mm,sec)
 
-def convert_timestamps(timeline):
+def convert_timestamps(timeline,t_sync_tower=0.0):
     t_start,t_end = timeline.split('\n')[0].split(' ')
     sec_duration = tstamp2sec(t_end) - tstamp2sec(t_start)
-    return t_start,sec2tstamp(sec_duration),sec_duration
+    return tstamp2sec(t_start)+t_sync_tower,sec_duration
 
 class Detector:
     def __init__(self,file_model_pb):
@@ -213,7 +218,8 @@ class Detector:
 
 def gen_data(split,list_dpath,out_path,fps_out,
              category_index=None,list_valid_ids=None,is_vout=False,
-             detector=None,is_rotate=False,dict_calib=None):
+             detector=None,is_rotate=False,dict_calib=None,
+             t_sync_tower=0.0):
     # Create directories to save image, lidar, and label
     opath_image = os.path.join(out_path,'image')
     opath_lidar = os.path.join(out_path,'lidar')
@@ -260,7 +266,7 @@ def gen_data(split,list_dpath,out_path,fps_out,
         # Load time stamps
         input_time = os.path.join(d_path,_FILE_TIMES)
         with open(input_time,'r') as f_time:
-            time_stamps = map(lambda x: convert_timestamps(x),f_time)
+            time_stamps = map(lambda x: convert_timestamps(x,t_sync_tower),f_time)
 
         input_lidar = os.path.join(d_path,_FILE_LIDAR)
         print(input_lidar)
@@ -274,13 +280,14 @@ def gen_data(split,list_dpath,out_path,fps_out,
         # Save frames only from the selected time frames
         for time_stamp in time_stamps:
             # Number of frames to be saved
-            n_frame = int(time_stamp[2]*fps_out)
+            n_frame = int(time_stamp[1]*fps_out)
 
             # Read lidar points
             print('   LIDAR Start: {}, Duration: {} (secs)'.format(
                             time_stamp[0],
-                            time_stamp[2]))
-            start_time = tstamp2sec(time_stamp[0])+dict_cfg['time_lidar']
+                            time_stamp[1]))
+            #start_time = tstamp2sec(time_stamp[0])+dict_cfg['time_lidar']
+            start_time = time_stamp[0]+dict_cfg['time_lidar']
             list_points = loadKrotations(input_lidar,start_time,
                                          n_frame,r_fps_lidar)
             for points in list_points:
@@ -291,14 +298,14 @@ def gen_data(split,list_dpath,out_path,fps_out,
 
             # Read Video file
             videogen = vreader(input_video,
-                               num_frames=int(time_stamp[2]*fps_cam),
+                               num_frames=int(time_stamp[1]*fps_cam),
                                inputdict={'-r':str(fps_cam)},
                                outputdict={'-r':str(fps_cam),
-                                           '-ss':time_stamp[0],
-                                           '-t':time_stamp[1]})
+                                           '-ss':str(time_stamp[0]),
+                                           '-t':str(time_stamp[1])})
             print('   Image&Label Start: {}, Duration: {} (secs)'.format(
                             time_stamp[0],
-                            time_stamp[2]))
+                            time_stamp[1]))
             for i_frame,image in enumerate(videogen):
                 if is_rotate:
                     image = np.rot90(image,k=2,axes=(0,1))
@@ -356,7 +363,6 @@ def gen_data(split,list_dpath,out_path,fps_out,
                                 f_label.write(' '.join(line)+'\n')
 
                     # Save video with bounding boxes
-                    #TODO Make video with distance values
                     if is_vout:
                         # Visualization of the results of a detection.
                         image_labeled = np.copy(image)
@@ -379,19 +385,6 @@ def gen_data(split,list_dpath,out_path,fps_out,
                                                               image_labeled)
                         vwriter2.writeFrame(image_lidar_labeled)
                     i_save +=1
-
-            # # Read lidar points
-            # start_time = tstamp2sec(time_stamp[0])+dict_cfg['time_lidar']
-            # list_points = loadKrotations(input_lidar,start_time,
-            #                              i_save-sum_frames,r_fps_lidar)
-
-            # for points in list_points:
-            #     out_lidar = os.path.join(opath_lidar,
-            #                              _FILE_OUT.format(i_save_lidar)+'.bin')
-            #     points.tofile(out_lidar)
-            #     i_save_lidar += 1
-
-            # n_frames.append(i_save-sum_frames)
             sum_frames = i_save
     
     detector.close_sess() # Close tf.Session
@@ -457,7 +450,8 @@ def main(_):
                  is_vout=FLAGS.is_vout,
                  detector=obj_detector,
                  is_rotate=FLAGS.is_rotate,
-                 dict_calib=dict_calib)
+                 dict_calib=dict_calib,
+                 t_sync_tower=FLAGS.t_sync_tower)
     
 if __name__ == '__main__':
     tf.app.run()

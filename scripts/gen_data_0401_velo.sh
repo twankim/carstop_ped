@@ -13,6 +13,7 @@ IS_ROTATE=True
 GEN_DIST=True
 F_INT=config/velo/calib_intrinsic.txt
 F_EXT=config/velo/calib_extrinsic.txt
+T_OFFSET=0.1
 
 python cstopp_gen_data.py \
         --data_pre=${DATA_PRE} \
@@ -26,4 +27,5 @@ python cstopp_gen_data.py \
         --is_rotate=${IS_ROTATE} \
         --gen_dist=${GEN_DIST} \
         --intrinsic_calib_path=${F_INT} \
-        --extrinsic_calib_path=${F_EXT}
+        --extrinsic_calib_path=${F_EXT} \
+        --t_sync_tower=${T_OFFSET}
