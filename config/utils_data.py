@@ -15,7 +15,7 @@ class CalibFields(object):
     intrinsic = 'P_cam'
     extrinsic = 'R_lidar2cam'
 
-class CalibPrams(object):
+class CalibConfigs(object):
     _D_MAX = 75.0
     _D_MIN = 2.0
     _CMAP = plt.get_cmap('brg')
@@ -44,7 +44,10 @@ x: down
 y: right
 """
 
-def loadCalib(f_int,f_ext,R_int=init_R_int,v_t=init_v_t,R_rot=init_R_rot,
+def loadCalib(f_int,f_ext,
+              R_int=CalibConfigs.init_R_int,
+              v_t=CalibConfigs.init_v_t,
+              R_rot=CalibConfigs.init_R_rot,
               ltype='m8'):
     dict_calib = {}
     # Intrinsic matrix (3x4)
@@ -105,7 +108,7 @@ def project_lidar_to_img(dict_calib,points,im_height,im_width):
     return points2D[idx_in,:], pointsDist[idx_in], pointsDistR[idx_in]
 
 def dist_to_pixel(val_dist, mode,
-                  d_max=CalibPrams._D_MAX, d_min=CalibPrams._D_MIN):
+                  d_max=CalibConfigs._D_MAX, d_min=CalibConfigs._D_MIN):
     """ Returns pixel value from distance measurment
     Args:
         val_dist: distance value (m)
@@ -131,7 +134,7 @@ def dist_to_pixel(val_dist, mode,
                                      1,255)).astype('uint8')
 
 def points_to_img(points2D,pointsDist,im_height,im_width,
-                  mode=CalibPrams._MODE):
+                  mode=CalibConfigs._MODE):
     points2D = np.round(points2D).astype('int')
     im_depth = np.zeros((im_height,im_width),dtype=np.uint8)
     for i,point in enumerate(points2D):
@@ -140,12 +143,12 @@ def points_to_img(points2D,pointsDist,im_height,im_width,
     return im_depth.reshape(im_height,im_width,1)
 
 def points_on_img(points2D,pointsDist,image,
-                  mode=CalibPrams._MODE):
+                  mode=CalibConfigs._MODE):
     points2D = np.round(points2D).astype('int')
     for i,point in enumerate(points2D):
         pre_pixel = dist_to_pixel(pointsDist[i],mode=mode)
         image[point[0],point[1],:] = (255*np.array(
-                        CalibPrams._CMAP(pre_pixel/255.0)[:3]))\
+                        CalibConfigs._CMAP(pre_pixel/255.0)[:3]))\
                         .astype(np.uint8)
 
     return image
@@ -222,7 +225,7 @@ def tf_project_lidar_to_img(dict_calib,points,im_height,im_width):
             tf.boolean_mask(pointsDistR,idx_in))
 
 def tf_dist_to_pixel(val_dist, mode,
-                     d_max=CalibPrams._D_MAX, d_min=CalibPrams._D_MIN):
+                     d_max=CalibConfigs._D_MAX, d_min=CalibConfigs._D_MIN):
     """ Returns pixel value from distance measurment
     Args:
         val_dist: distance value (m)
@@ -249,7 +252,7 @@ def tf_dist_to_pixel(val_dist, mode,
                                              1,255)),tf.uint8)
 
 def tf_points_to_img(points2D,pointsDist,im_height,im_width,
-                     mode=CalibPrams._MODE):
+                     mode=CalibConfigs._MODE):
     pointsPixel = tf_dist_to_pixel(pointsDist,mode=mode)
     points2D_yx = tf.cast(tf.round(points2D),tf.int32)
     img = tf.scatter_nd(points2D_yx,pointsPixel,[im_height,im_width])
@@ -268,7 +271,7 @@ def imlidarwrite(fname,im,im_depth):
     idx_h, idx_w = np.nonzero(im_depth)
     for hi,wi in zip(idx_h,idx_w):
         im_out[hi,wi,:] = (255*np.array(
-                        CalibPrams._CMAP(im_depth[hi,wi]/255.0)[:3]))\
+                        CalibConfigs._CMAP(im_depth[hi,wi]/255.0)[:3]))\
                         .astype(np.uint8)
     imsave(fname,im_out)
     print("   ... Write:{}".format(fname))
