@@ -271,9 +271,10 @@ def gen_data(split,list_dpath,out_path,fps_out,
         vwriter2 = FFmpegWriter(os.path.join(out_path,split+'_lidar_labeled.mp4'),
                                 inputdict={'-r':str(fps_out)},
                                 outputdict={'-r':str(fps_out)})
-        vwriter_gt = FFmpegWriter(os.path.join(out_path,split+'_gt.mp4'),
-                               inputdict={'-r':str(fps_out)},
-                               outputdict={'-r':str(fps_out)})
+        if is_gt:
+            vwriter_gt = FFmpegWriter(os.path.join(out_path,split+'_gt.mp4'),
+                                   inputdict={'-r':str(fps_out)},
+                                   outputdict={'-r':str(fps_out)})
 
     detector.load_sess() # Load tf.Session
     print('\n<Generating {} set>'.format(split))
@@ -472,7 +473,8 @@ def gen_data(split,list_dpath,out_path,fps_out,
     if is_vout:
         vwriter.close()
         vwriter2.close()
-        vwriter_gt.close()
+            if is_gt:
+                vwriter_gt.close()
 
 def main(_):
     if tf.__version__ < '1.4.0':
