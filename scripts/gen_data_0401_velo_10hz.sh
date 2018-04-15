@@ -14,6 +14,7 @@ GEN_DIST=True
 F_INT=config/velo/calib_intrinsic.txt
 F_EXT=config/velo/calib_extrinsic.txt
 T_OFFSET=0.1
+IS_GT=False
 
 python cstopp_gen_data.py \
         --data_pre=${DATA_PRE} \
@@ -28,4 +29,5 @@ python cstopp_gen_data.py \
         --gen_dist=${GEN_DIST} \
         --intrinsic_calib_path=${F_INT} \
         --extrinsic_calib_path=${F_EXT} \
-        --t_sync_tower=${T_OFFSET}
+        --t_sync_tower=${T_OFFSET} \
+        --is_gt=${IS_GT}
