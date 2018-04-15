@@ -473,8 +473,8 @@ def gen_data(split,list_dpath,out_path,fps_out,
     if is_vout:
         vwriter.close()
         vwriter2.close()
-            if is_gt:
-                vwriter_gt.close()
+        if is_gt:
+            vwriter_gt.close()
 
 def main(_):
     if tf.__version__ < '1.4.0':
