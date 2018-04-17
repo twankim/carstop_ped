@@ -71,19 +71,6 @@ data_feature = {
 	'image/filename': tf.FixedLenFeature([], tf.string),
 }
 
-infer_feature = {
-      'image/filename': dataset_util.bytes_feature(image_path.encode('utf8')),
-      'image/object/bbox/xmin': dataset_util.float_list_feature(xmin_norm),
-      'image/object/bbox/xmax': dataset_util.float_list_feature(xmax_norm),
-      'image/object/bbox/ymin': dataset_util.float_list_feature(ymin_norm),
-      'image/object/bbox/ymax': dataset_util.float_list_feature(ymax_norm),
-      'image/object/class/label': dataset_util.int64_list_feature(classes),
-      'image/object/score': dataset_util.float_list_feature(scores)
-  }
-
-class Writer:
-	def __init__(self, record_path):
-	
 
 class Reader:
 	def __init__(self, record_path):
@@ -120,13 +107,13 @@ class Reader:
 		coord = tf.train.Coordinator()
 		threads = tf.train.start_queue_runners(sess=self.sess, coord=coord)
 		print('Coord done')
-		image_eval, width_eval, height_eval = np.array(self.sess.run([image_decoded, width, height]))
+		image_eval, width_eval, height_eval, f_eval = np.array(self.sess.run([image_decoded, width, height, filename]))
 		print(image_eval.shape)
 		#print(max(image_eval))
 		#print(min(image_eval))
 		#image_eval = image_eval.reshape(width_eval, height_eval)
 		self.close_sess()
-		return image_eval
+		return image_eval, f_eval
 
 class Detector:
     def __init__(self, file_model_pb):
@@ -186,7 +173,63 @@ def convert_label(data_pre,label):
     else:
         return label
 
-def inference(data_dir=FLAGS.data_dir, model_dir=FLAGS.model_dir, output_dir=FLAGS.output_dir):
+def prepare_example(filename, bbox, scores, classes):
+	"""Converts a dictionary with annotations for an image to tf.Example proto.
+
+	Args:
+	image_path: The complete path to image.
+	annotations: A dictionary representing the annotation of a single object
+	that appears in the image.
+	label_map_dict: A map from string label names to integer ids.
+
+	Returns:
+	example: The converted tf.Example.
+
+	<Coordinate system (Lidar)>
+	x: forward 
+	y: left
+	z: up
+
+	<Coordinate system (Camera/image)>
+	x: down
+	y: right
+	"""
+
+	# Already normalized in our dataset
+	ymin = []
+	xmin = []
+	ymax = []
+	xmax = []
+	sc = []
+	lab =  []
+	for i in range(0, scores.shape[0]):
+		if scores[i] >= 0.5:
+			ymin.append(bbox[i][0])
+			xmin.append(bbox[i][1])
+			ymax.append(bbox[i][2])
+			xmax.append(bbox[i][3])	
+			sc.append(scores[i])
+			lab.append(classes[i])
+	
+	print('scores ' + str(sc))
+	print('labels ' + str(lab))
+
+	example = tf.train.Example(features=tf.train.Features(feature={		'image/filename': dataset_util.bytes_feature(filename.encode('utf8')),
+	'image/object/bbox/xmin': dataset_util.float_list_feature(xmin),
+	'image/object/bbox/xmax': dataset_util.float_list_feature(xmax),
+	'image/object/bbox/ymin': dataset_util.float_list_feature(ymin),
+	'image/object/bbox/ymax': dataset_util.float_list_feature(ymax),
+	'image/object/class': dataset_util.int64_list_feature(lab),
+	'image/object/scores': dataset_util.float_list_feature(sc)
+	}))
+
+	return example
+
+
+def inference(data_dir=FLAGS.data_dir, model_dir=FLAGS.model_dir, output_dir=FLAGS.output_dir, split='train'):
+
+	output_path = os.path.join(output_dir,'cstopp_{}.tfrecord'.format(split))
+	tf_writer = tf.python_io.TFRecordWriter(output_path)
 
 	inference_reader = Reader(data_dir)
 	print(inference_reader.num_records)
@@ -207,9 +250,13 @@ def inference(data_dir=FLAGS.data_dir, model_dir=FLAGS.model_dir, output_dir=FLA
 						    category_index[cid]['name'])
 	for i in range(0, inference_reader.num_records):
 		print(i)
-		image = inference_reader.get_image()
+		image, filename = inference_reader.get_image()
 		#print('Image type is ' + str(image))
 		bbox, scores, classes, num = detector.detect(image)
+
+		#print('bbox is ' + str(bbox))
+		#print('score is ' + str(scores))
+		#print('classes is ' + str(classes))
 
 		classes = np.squeeze(classes).astype(np.int32)
 		# Select only valid classes
@@ -218,9 +265,11 @@ def inference(data_dir=FLAGS.data_dir, model_dir=FLAGS.model_dir, output_dir=FLA
 		boxes = np.squeeze(bbox)[idx_consider,:]
 		scores = np.squeeze(scores)[idx_consider]
 
-		#print('bbox is ' + str(boxes))
-		#print('score is ' + str(scores))
-		#print('classes is ' + str(classes))
+      		example = prepare_example(filename, boxes, scores, classes)
+      		tf_writer.write(example.SerializeToString())
+
+	tf_writer.close()
+
 
 
 
