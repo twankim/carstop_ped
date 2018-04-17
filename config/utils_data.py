@@ -239,16 +239,16 @@ def tf_dist_to_pixel(val_dist, mode,
     val_dist = tf.minimum(val_dist,d_max)
     if mode == 'standard':
         return tf.cast(tf.round(minmax_scale(val_dist,
-                                             d_min,d_max,
+                                             d_max,d_min,
                                              1,255)),tf.uint8)
     elif mode == 'inverse':
         return tf.cast(tf.round(minmax_scale(1.0/val_dist,
                                              1.0/d_max,1.0/d_min,
                                              1,255)),tf.uint8)
     else:
-        # Default is inverse
+        # Default is standard
         return tf.cast(tf.round(minmax_scale(1.0/val_dist,
-                                             1.0/d_max,1.0/d_min,
+                                             d_max,d_min,
                                              1,255)),tf.uint8)
 
 def tf_points_to_img(points2D,pointsDist,im_height,im_width,
