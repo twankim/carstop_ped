@@ -76,43 +76,42 @@ class Reader:
 	def __init__(self, record_path):
 		data_path = []
 		data_path.append(os.path.join(record_path, 'cstopp_train.tfrecord'))
-		data_path.append(os.path.join(record_path, 'cstopp_test.tfrecord'))
-		data_path.append(os.path.join(record_path, 'cstopp_val.tfrecord'))
+		#data_path.append(os.path.join(record_path, 'cstopp_test.tfrecord'))
+		#data_path.append(os.path.join(record_path, 'cstopp_val.tfrecord'))
 		self.read_graph = tf.Graph()
-		self.sess  = tf.Session(graph=self.read_graph)
-		with self.sess:
-			self.sess.run(tf.local_variables_initializer())
-			self.sess.run(tf.global_variables_initializer())
+		with self.read_graph.as_default():
+			old_graph_def = tf.GraphDef()
 			self.filename_queue = tf.train.string_input_producer(data_path)
 			self.reader = tf.TFRecordReader()
 			self.num_records = 0
 			for f in data_path:
 				self.num_records += sum(1 for _ in tf.python_io.tf_record_iterator(f))
-
-	def load_sess(self):
+			tf.import_graph_def(old_graph_def, name='')
 		self.sess = tf.Session(graph=self.read_graph)
-
-	def close_sess(self):
-		self.sess.close()
+		#self.sess.run(tf.local_variables_initializer())
+		#self.sess.run(tf.global_variables_initializer())
 
 	def get_image(self):
-		self.load_sess()
-		_, serialized_example = self.reader.read(self.filename_queue)
-		features = tf.parse_single_example(serialized_example, features=data_feature)
-		#image = tf.decode_raw(features['image/encoded'], tf.uint8)
-		image_decoded = tf.image.decode_png(features['image/encoded'])
-		filename = features['image/filename']
-		width = features['image/width']
-		height = features['image/height']
-		coord = tf.train.Coordinator()
-		threads = tf.train.start_queue_runners(sess=self.sess, coord=coord)
+		#print(dir(self.sess))
+		with self.read_graph.as_default():
+			old_graph_def = tf.GraphDef()
+			_, serialized_example = self.reader.read(self.filename_queue)
+			features = tf.parse_single_example(serialized_example, features=data_feature)
+			image_decoded = tf.image.decode_png(features['image/encoded'])
+			filename = features['image/filename']
+			width = features['image/width']
+			height = features['image/height']
+			coord = tf.train.Coordinator()
+			threads = tf.train.start_queue_runners(sess=self.sess, coord=coord)
+			tf.import_graph_def(old_graph_def, name='')
 		print('Coord done')
+		#print(self.sess)
 		image_eval, width_eval, height_eval, f_eval = np.array(self.sess.run([image_decoded, width, height, filename]))
-		print(image_eval.shape)
+		print('file ' + str(f_eval) + ' is of shape ' + str( image_eval.shape))
 		#print(max(image_eval))
 		#print(min(image_eval))
 		#image_eval = image_eval.reshape(width_eval, height_eval)
-		self.close_sess()
+		#self.close_sess()
 		return image_eval, f_eval
 
 class Detector:
@@ -120,6 +119,7 @@ class Detector:
         self.det_graph = tf.Graph()
         self.file_model_pb = file_model_pb
         self.load_model()
+        self.load_sess()
 
     def load_model(self):
     	print("Loading model...")
@@ -148,11 +148,11 @@ class Detector:
         self.sess.close()
 
     def detect(self, image):
-    	self.load_sess()
+	self.load_sess()
         image_np_expanded = np.expand_dims(image, axis=0)
         boxes,scores,classes,num = self.sess.run(
-                        [self.det_boxes,self.det_scores,self.det_classes,self.num_det],
-                        feed_dict={self.image_tensor:image_np_expanded})
+        		[self.det_boxes,self.det_scores,self.det_classes,self.num_det],
+        		feed_dict={self.image_tensor:image_np_expanded})
         self.close_sess()
         return boxes,scores,classes,num
 
@@ -174,28 +174,6 @@ def convert_label(data_pre,label):
         return label
 
 def prepare_example(filename, bbox, scores, classes):
-	"""Converts a dictionary with annotations for an image to tf.Example proto.
-
-	Args:
-	image_path: The complete path to image.
-	annotations: A dictionary representing the annotation of a single object
-	that appears in the image.
-	label_map_dict: A map from string label names to integer ids.
-
-	Returns:
-	example: The converted tf.Example.
-
-	<Coordinate system (Lidar)>
-	x: forward 
-	y: left
-	z: up
-
-	<Coordinate system (Camera/image)>
-	x: down
-	y: right
-	"""
-
-	# Already normalized in our dataset
 	ymin = []
 	xmin = []
 	ymax = []
@@ -228,12 +206,14 @@ def prepare_example(filename, bbox, scores, classes):
 
 def inference(data_dir=FLAGS.data_dir, model_dir=FLAGS.model_dir, output_dir=FLAGS.output_dir, split='train'):
 
+	# Define output
 	output_path = os.path.join(output_dir,'cstopp_{}.tfrecord'.format(split))
 	tf_writer = tf.python_io.TFRecordWriter(output_path)
 
+	# Create detector class
+	detector = Detector(model_dir)
 	inference_reader = Reader(data_dir)
 	print(inference_reader.num_records)
-	detector = Detector(model_dir)
 
 	label_map = label_map_util.load_labelmap(FLAGS.label)
 	categories = label_map_util.convert_label_map_to_categories(
@@ -248,6 +228,7 @@ def inference(data_dir=FLAGS.data_dir, model_dir=FLAGS.model_dir, output_dir=FLA
 	for cid in list_valid_ids:
 		category_index[cid]['name'] = convert_label(FLAGS.data_pre,
 						    category_index[cid]['name'])
+
 	for i in range(0, inference_reader.num_records):
 		print(i)
 		image, filename = inference_reader.get_image()
@@ -266,6 +247,7 @@ def inference(data_dir=FLAGS.data_dir, model_dir=FLAGS.model_dir, output_dir=FLA
 		scores = np.squeeze(scores)[idx_consider]
 
       		example = prepare_example(filename, boxes, scores, classes)
+		print('record is ' + str(example))
       		tf_writer.write(example.SerializeToString())
 
 	tf_writer.close()
