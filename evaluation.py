@@ -55,7 +55,7 @@ gt_feature = {
   'image/object/bbox/xmin': tf.VarLenFeature(tf.float32),
   'image/object/bbox/ymax': tf.VarLenFeature(tf.float32),
   'image/object/bbox/xmax': tf.VarLenFeature(tf.float32),
-  'image/object/class': tf.VarLenFeature(tf.int64),
+  'image/object/class': tf.VarLenFeature(tf.string),
   'image/filename': tf.FixedLenFeature([], tf.string),
 }
 
@@ -64,7 +64,7 @@ det_feature = {
   'image/object/bbox/xmin': tf.VarLenFeature(tf.float32),
   'image/object/bbox/ymax': tf.VarLenFeature(tf.float32),
   'image/object/bbox/xmax': tf.VarLenFeature(tf.float32),
-  'image/object/class': tf.VarLenFeature(tf.int64),
+  'image/object/class': tf.VarLenFeature(tf.string),
   'image/object/scores': tf.VarLenFeature(tf.float32),	
   'image/filename': tf.FixedLenFeature([], tf.string),
 }
@@ -187,17 +187,18 @@ def evaluate(gt_dir=FLAGS.gt_dir, det_dir=FLAGS.det_dir, output_dir=FLAGS.output
 	det_reader = Reader(det_dir)
 
 	category = [{'id': 1, 'name':'pedestrian'}, {'id':2, 'name':'car'}]
+	category_map = {'pedestrian': 1, 'car': 2}
 	evaluator = obj_eval.ObjectDetectionEvaluator(category)
 
 	for _ in range(0, num_records):
 		gt_fields = gt_reader.get_fields(gt_feature)
 		gt_bbox = get_bbox(gt_fields)
-		gt_classes = np.array(gt_fields['image/object/class'].values)
+		gt_classes = np.array([category_map[i] for i in gt_fields['image/object/class'].values])
 
 		det_fields = det_reader.get_fields(det_feature)
 		det_bbox = get_bbox(det_fields)
-		det_classes = np.array(det_fields['image/object/class'].values)
 		det_scores = det_fields['image/object/scores'].values
+		det_classes = np.array([category_map[i] for i in det_fields['image/object/class'].values])
 		filename = gt_fields['image/filename']
 		#print('gt_bbox is ' + str(gt_bbox))
 		print('gt_classes is ' + str(gt_classes))

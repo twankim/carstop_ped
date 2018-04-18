@@ -187,7 +187,7 @@ def prepare_example(filename, bbox, scores, classes):
 			ymax.append(bbox[i][2])
 			xmax.append(bbox[i][3])	
 			sc.append(scores[i])
-			lab.append(classes[i])
+			lab.append(classes[i].encode('utf8'))
 	
 	print('scores ' + str(sc))
 	print('labels ' + str(lab))
@@ -197,7 +197,7 @@ def prepare_example(filename, bbox, scores, classes):
 	'image/object/bbox/xmax': dataset_util.float_list_feature(xmax),
 	'image/object/bbox/ymin': dataset_util.float_list_feature(ymin),
 	'image/object/bbox/ymax': dataset_util.float_list_feature(ymax),
-	'image/object/class': dataset_util.int64_list_feature(lab),
+	'image/object/class': dataset_util.bytes_list_feature(lab),
 	'image/object/scores': dataset_util.float_list_feature(sc)
 	}))
 
@@ -245,7 +245,9 @@ def inference(data_dir=FLAGS.data_dir, model_dir=FLAGS.model_dir, output_dir=FLA
 		classes = classes[idx_consider]
 		boxes = np.squeeze(bbox)[idx_consider,:]
 		scores = np.squeeze(scores)[idx_consider]
-
+		
+		classes = [category_index[classes[i]]['name'] for i in range(0, boxes.shape[0])]
+		#print('c is ' + str(c))
       		example = prepare_example(filename, boxes, scores, classes)
 		print('record is ' + str(example))
       		tf_writer.write(example.SerializeToString())
