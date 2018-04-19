@@ -1,5 +1,5 @@
 # Copyright 2017 Tensorflow. All Rights Reserved.
-# Modifications copyright 2018 UT Austin/Taewan Kim
+# Modifications copyright 2018 UT Austin/Saharsh Oza
 # We follow the object detection API of Tensorflow
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -22,9 +22,6 @@ import os
 import sys
 import numpy as np
 import tensorflow as tf
-# from skvideo.io import (vreader,FFmpegWriter)
-# from skimage.io import imsave
-# from matplotlib import pyplot as plt
 
 import _init_paths
 from object_detection.utils import label_map_util
@@ -48,6 +45,8 @@ tf.app.flags.DEFINE_string('det_dir', '', 'Location of root directory for the '
 tf.app.flags.DEFINE_string('output_dir', '', 'Path to which metrics'
                            'will be written.')
 
+tf.app.flags.DEFINE_string('split', 'train', 'Data split when record file is being read from gt_dir and det_dir ex: train, test, val')
+
 FLAGS = tf.app.flags.FLAGS
 
 gt_feature = {
@@ -55,8 +54,9 @@ gt_feature = {
   'image/object/bbox/xmin': tf.VarLenFeature(tf.float32),
   'image/object/bbox/ymax': tf.VarLenFeature(tf.float32),
   'image/object/bbox/xmax': tf.VarLenFeature(tf.float32),
-  'image/object/class': tf.VarLenFeature(tf.string),
+  'image/object/class/text': tf.VarLenFeature(tf.string),
   'image/filename': tf.FixedLenFeature([], tf.string),
+  'image/object/difficult': tf.VarLenFeature(tf.int64),
 }
 
 det_feature = {
@@ -64,18 +64,16 @@ det_feature = {
   'image/object/bbox/xmin': tf.VarLenFeature(tf.float32),
   'image/object/bbox/ymax': tf.VarLenFeature(tf.float32),
   'image/object/bbox/xmax': tf.VarLenFeature(tf.float32),
-  'image/object/class': tf.VarLenFeature(tf.string),
+  'image/object/class/text': tf.VarLenFeature(tf.string),
   'image/object/scores': tf.VarLenFeature(tf.float32),	
   'image/filename': tf.FixedLenFeature([], tf.string),
 }
 
 
 class Reader:
-	def __init__(self, record_path):
+	def __init__(self, record_path, split):
 		data_path = []
-		data_path.append(os.path.join(record_path, 'cstopp_train.tfrecord'))
-		#data_path.append(os.path.join(record_path, 'cstopp_test.tfrecord'))
-		#data_path.append(os.path.join(record_path, 'cstopp_val.tfrecord'))
+		data_path.append(os.path.join(record_path, 'cstopp_{}.tfrecord'.format(split)))
 		self.read_graph = tf.Graph()
 		with self.read_graph.as_default():
 			old_graph_def = tf.GraphDef()
@@ -94,7 +92,6 @@ class Reader:
 			return tf.image.decode_png(self.features[field])
 
 	def get_fields(self, feature_dict):
-		# print(dir(self.sess))
 		# Modify graph to add these ops
 		with self.read_graph.as_default():
 			old_graph_def = tf.GraphDef()
@@ -104,17 +101,13 @@ class Reader:
 			self.features = tf.parse_single_example(serialized_example, features=feature_dict)
 			# Get required fields from record
 			fields_out = [self.get_field(f) for f in feature_dict.keys()]
-			#print(feature_dict.keys())
 			# Close queue
 			coord = tf.train.Coordinator()
 			threads = tf.train.start_queue_runners(sess=self.sess, coord=coord)
 			# Import updated graph in current read_graph
 			tf.import_graph_def(old_graph_def, name='')
-		#print('Coord done')
-		print(self.sess)
 		eval_out = np.array(self.sess.run(fields_out))
 		out_dict = dict(zip(feature_dict.keys(), eval_out))
-		#print(feature_dict.keys())
 		return out_dict
 
 def get_bbox(box_list):
@@ -123,130 +116,65 @@ def get_bbox(box_list):
 	ymax_eval = box_list['image/object/bbox/ymax']
 	xmax_eval = box_list['image/object/bbox/xmax']
 	b_shape = xmax_eval.dense_shape[0]
-	#print(b_shape)
-	#print('ymin_eval is ' + str(ymin_eval))
 	bbox = []
 	for i in range(0, b_shape):
 		bbox.append([ymin_eval.values[xmin_eval.indices[i]][0], 
 			xmin_eval.values[xmax_eval.indices[i]][0], ymax_eval.values[ymin_eval.indices[i]][0], 
 			xmax_eval.values[ymax_eval.indices[i]][0]])
-	print(bbox)
 	bbox = np.array(bbox)
 	return bbox	
-# def read_data(filename_queue, reader, sess, parse_type='gt'):
-# 	_, serialized_example = reader.read(filename_queue)
-# 	if 'gt' in parse_type:
-# 		features = tf.parse_single_example(serialized_example, features=gt_feature)
-# 	else:
-# 		features = tf.parse_single_example(serialized_example, features=det_feature)
-# 	xmin = features['image/object/bbox/xmin']
-# 	xmax = features['image/object/bbox/xmax']
-# 	ymin = features['image/object/bbox/ymin']
-# 	ymax = features['image/object/bbox/ymax']
-# 	label = features['image/object/class/label']
-# 	filename = features['image/filename']
-# 	coord = tf.train.Coordinator()
-# 	threads = tf.train.start_queue_runners(sess=sess, coord=coord)
 
-# 	if 'gt' in parse_type:
-# 		xmin_eval, xmax_eval, ymin_eval, ymax_eval, label_eval, filename_eval = sess.run([xmin, xmax, ymin, ymax, label, filename])
-# 	else:
-# 		scores = features['image/object/score']
-# 		xmin_eval, xmax_eval, ymin_eval, ymax_eval, label_eval, filename_eval, scores_eval = sess.run([xmin, xmax, ymin, ymax, label, filename, scores])
+def update_result(image_evaluation, image_num, csv_handle):
+	metric_string = str(image_num) + "," + str(image_evaluation['PerformanceByCategory/AP@0.5IOU/pedestrian']) + "\n"
+	csv_handle.write(metric_string)
 
-# 	label_dense = tf.sparse_tensor_to_dense(label_eval).eval()
-# 	b_shape = xmax_eval.dense_shape[0]
+def evaluate(gt_dir=FLAGS.gt_dir, det_dir=FLAGS.det_dir, output_dir=FLAGS.output_dir, split='train'):
 	
-# 	print('filename ' + str(filename_eval))
-# 	print('xmin ' + str(xmin_eval))
-# 	print('xmax ' + str(xmax_eval))
-# 	print('ymin ' + str(ymin_eval))
-# 	print('ymax ' + str(ymax_eval))
-# 	print('label ' + str(label_eval))
-# 	print('label_dense ' + str(label_dense))
-
-# 	bbox = []
-# 	for i in range(0, b_shape):
-# 		bbox.append([ymin_eval.values[xmin_eval.indices[i]][0], 
-# 			xmin_eval.values[xmax_eval.indices[i]][0], ymax_eval.values[ymin_eval.indices[i]][0], 
-# 			xmax_eval.values[ymax_eval.indices[i]][0]])
-# 	print(bbox)
-# 	bbox = np.array(bbox)
-
-# 	if 'det' in parse_type:
-# 		return bbox, label_dense, scores_eval, filename_eval
-# 	else:
-# 		return bbox, label_dense, filename_eval
-
-
-
-def evaluate(gt_dir=FLAGS.gt_dir, det_dir=FLAGS.det_dir, output_dir=FLAGS.output_dir):
-
-	gt_reader = Reader(gt_dir)
+	gt_reader = Reader(gt_dir, split)
 	num_records = gt_reader.num_records
-	det_reader = Reader(det_dir)
+	det_reader = Reader(det_dir, split)
 
-	category = [{'id': 1, 'name':'pedestrian'}, {'id':2, 'name':'car'}]
+	category = [{'id': 1, 'name':'pedestrian'}]
 	category_map = {'pedestrian': 1, 'car': 2}
 	evaluator = obj_eval.ObjectDetectionEvaluator(category)
+	
+	output_path = os.path.join(output_dir, 'cstopp_{}_eval.csv'.format(split))
+	csv_handle = open(output_path, 'w')
 
-	for _ in range(0, num_records):
+	final_eval = None
+	for image_num in range(0, num_records):
+		print('Evaluating ' + str(image_num) + " from " + str(num_records) + " images" )
 		gt_fields = gt_reader.get_fields(gt_feature)
 		gt_bbox = get_bbox(gt_fields)
-		gt_classes = np.array([category_map[i] for i in gt_fields['image/object/class'].values])
+		gt_classes = np.array([category_map[i] for i in gt_fields['image/object/class/text'].values])
+		gt_diff = np.array(gt_fields['image/object/difficult'].values)
 
 		det_fields = det_reader.get_fields(det_feature)
 		det_bbox = get_bbox(det_fields)
 		det_scores = det_fields['image/object/scores'].values
-		det_classes = np.array([category_map[i] for i in det_fields['image/object/class'].values])
+		det_classes = np.array([category_map[i] for i in det_fields['image/object/class/text'].values])
 		filename = gt_fields['image/filename']
-		#print('gt_bbox is ' + str(gt_bbox))
-		print('gt_classes is ' + str(gt_classes))
-		#print('det_bbox is ' + str(det_bbox))
-		print('det_classes is ' + str(det_classes))
-		#print('det_scores is ' + str(det_scores))
-	
-		#print('det_trunc is ' + str(det_bbox[:len(gt_classes)]))	
-		ground_dict = {standard_fields.InputDataFields.groundtruth_boxes: gt_bbox, standard_fields.InputDataFields.groundtruth_classes: gt_classes}
+
+		ground_dict = {standard_fields.InputDataFields.groundtruth_boxes: gt_bbox, standard_fields.InputDataFields.groundtruth_classes: gt_classes, standard_fields.InputDataFields.groundtruth_difficult: gt_diff}
 		det_dict = {standard_fields.DetectionResultFields.detection_boxes: det_bbox[:len(gt_classes)], standard_fields.DetectionResultFields.detection_scores: det_scores[:len(gt_classes)], standard_fields.DetectionResultFields.detection_classes: det_classes[:len(gt_classes)]}
 		evaluator.add_single_ground_truth_image_info(filename, ground_dict)
 		evaluator.add_single_detected_image_info(filename, det_dict)
-		print("Evaluate is " +  str(evaluator.evaluate()))
-
-
-	# with tf.Session() as sess:
-	# 	# Initialize variables
-	# 	sess.run(tf.local_variables_initializer())
-	# 	sess.run(tf.global_variables_initializer())
-	# 	# Get number of records to process
-	# 	num_records = sum(1 for _ in tf.python_io.tf_record_iterator(gt_data_path[0]))
-	# 	det_num_records = sum(1 for _ in tf.python_io.tf_record_iterator(det_data_path[0]))
-	# 	assert (num_records == det_num_records), "Unequal images in ground truth and detection"
-	# 	# Create a list of filenames and pass it to a queue
-	# 	gt_filename_queue = tf.train.string_input_producer(gt_data_path)
-	# 	# Define a reader and read the next record
-	# 	gt_reader = tf.TFRecordReader()
-	# 	# Create a similar queue for detection 
-	# 	det_filename_queue = tf.train.string_input_producer(det_data_path)
-	# 	# Define a reader and read the next record
-	# 	det_reader = tf.TFRecordReader()
-	# 	# Iterate over all the records
-		# for _ in range(0, num_records):
-		# 	gt_bbox, gt_classes, filename_eval = read_data(gt_filename_queue, gt_reader, sess, 'gt')
-		# 	dt_bbox, dt_classes, dt_scores, filename_eval = read_data(gt_filename_queue, gt_reader, sess, 'det')
-		# 	print('gt_bbox is ' + str(gt_bbox))
-		# 	print('gt_classes is ' + str(gt_classes))
-		# 	print('det_bbox is ' + str(dt_bbox))
-		# 	print('det_classes is ' + str(dt_classes))
-		# 	ground_dict = {standard_fields.InputDataFields.groundtruth_boxes: gt_bbox, standard_fields.InputDataFields.groundtruth_classes: gt_classes}
-		# 	det_dict = {standard_fields.DetectionResultFields.detection_boxes: dt_bbox[:len(gt_classes)], standard_fields.DetectionResultFields.detection_scores: dt_scores[:len(gt_classes)], standard_fields.DetectionResultFields.detection_classes: dt_classes[:len(gt_classes)]}
-		# 	evaluator.add_single_ground_truth_image_info(filename_eval, ground_dict)
-		# 	evaluator.add_single_detected_image_info(filename_eval, det_dict)
-		# 	print("Evaluate is " +  str(evaluator.evaluate()))		
+		eval_result = evaluator.evaluate()
+	#	print(eval_result)
+		
+		if final_eval is None:
+			final_eval = {k:v for (k,v) in eval_result.iteritems()}
+		else:
+			final_eval = {k: (v+final_eval[k]) for (k,v) in eval_result.iteritems()}
+		
+		update_result(eval_result, image_num, csv_handle)	
+	final_eval = {k:(v/num_records) for (k,v) in final_eval.iteritems()}
+	csv_handle.close()
 
 
 if __name__ == '__main__':
   evaluate(
       gt_dir=FLAGS.gt_dir,
       det_dir=FLAGS.det_dir,
-      output_dir=FLAGS.output_dir)	
+      output_dir=FLAGS.output_dir,
+      split=FLAGS.split)	

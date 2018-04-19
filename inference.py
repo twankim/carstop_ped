@@ -1,5 +1,5 @@
 # Copyright 2017 Tensorflow. All Rights Reserved.
-# Modifications copyright 2018 UT Austin/Taewan Kim
+# Modifications copyright 2018 UT Austin/Saharsh Oza
 # We follow the object detection API of Tensorflow
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -22,9 +22,6 @@ import os
 import sys
 import numpy as np
 import tensorflow as tf
-# from skvideo.io import (vreader,FFmpegWriter)
-# from skimage.io import imsave
-# from matplotlib import pyplot as plt
 
 import _init_paths
 from object_detection.utils import label_map_util
@@ -40,13 +37,14 @@ tf.app.flags.DEFINE_string('data_dir', '', 'Location of root directory for the '
                            '<gt_dir>/cstopp_train.tfrecord,'
                            '<gt_dir>/cstopp_test.tfrecord'
                            '<gt_dir>/cstopp_val.tfrecord')
-tf.app.flags.DEFINE_string('model_dir', '', 'Location of root directory for the '
+tf.app.flags.DEFINE_string('output_dir', '.', 'Location of root directory for the '
                            'inference data. Folder structure is assumed to be:'
                            '<det_dir>/cstopp_train.tfrecord,'
                            '<det_dir>/cstopp_test.tfrecord'
                            '<det_dir>/cstopp_val.tfrecord')
-tf.app.flags.DEFINE_string('output_dir', '', 'Path to which metrics'
-                           'will be written.')
+tf.app.flags.DEFINE_string('model_dir', '', 'Path to saved model')
+
+tf.app.flags.DEFINE_string('split', 'train', 'Data split whose record file is being read ex: train, test, val')
 
 tf.app.flags.DEFINE_string(
     'data_pre', 'coco',
@@ -63,6 +61,8 @@ tf.app.flags.DEFINE_integer(
 
 FLAGS = tf.app.flags.FLAGS
 
+MIN_SCORE = 0
+
 data_feature = {
 	'image/encoded': tf.FixedLenFeature([], tf.string),
         'image/height': tf.FixedLenFeature([], tf.int64),
@@ -73,26 +73,22 @@ data_feature = {
 
 
 class Reader:
-	def __init__(self, record_path):
+	def __init__(self, record_path, split):
 		data_path = []
-		data_path.append(os.path.join(record_path, 'cstopp_train.tfrecord'))
-		#data_path.append(os.path.join(record_path, 'cstopp_test.tfrecord'))
-		#data_path.append(os.path.join(record_path, 'cstopp_val.tfrecord'))
+		data_path.append(os.path.join(record_path, 'cstopp_' + split + '.tfrecord'))
 		self.read_graph = tf.Graph()
 		with self.read_graph.as_default():
 			old_graph_def = tf.GraphDef()
 			self.filename_queue = tf.train.string_input_producer(data_path)
+			print('Reading record file ' + str(data_path))
 			self.reader = tf.TFRecordReader()
 			self.num_records = 0
 			for f in data_path:
 				self.num_records += sum(1 for _ in tf.python_io.tf_record_iterator(f))
 			tf.import_graph_def(old_graph_def, name='')
 		self.sess = tf.Session(graph=self.read_graph)
-		#self.sess.run(tf.local_variables_initializer())
-		#self.sess.run(tf.global_variables_initializer())
 
 	def get_image(self):
-		#print(dir(self.sess))
 		with self.read_graph.as_default():
 			old_graph_def = tf.GraphDef()
 			_, serialized_example = self.reader.read(self.filename_queue)
@@ -104,14 +100,7 @@ class Reader:
 			coord = tf.train.Coordinator()
 			threads = tf.train.start_queue_runners(sess=self.sess, coord=coord)
 			tf.import_graph_def(old_graph_def, name='')
-		print('Coord done')
-		#print(self.sess)
 		image_eval, width_eval, height_eval, f_eval = np.array(self.sess.run([image_decoded, width, height, filename]))
-		print('file ' + str(f_eval) + ' is of shape ' + str( image_eval.shape))
-		#print(max(image_eval))
-		#print(min(image_eval))
-		#image_eval = image_eval.reshape(width_eval, height_eval)
-		#self.close_sess()
 		return image_eval, f_eval
 
 class Detector:
@@ -158,11 +147,11 @@ class Detector:
 
 def get_valid_label_list(data_pre):
     if data_pre == 'coco':
-        return [u'person',u'car',u'bus',u'truck']
+        return [u'person']
     elif data_pre == 'kitti':
-        return [u'car',u'pedestrian']
+        return [u'pedestrian']
     else:
-        return [u'car',u'pedestrian']
+        return [u'pedestrian']
 
 def convert_label(data_pre,label):
     if data_pre == 'coco':
@@ -181,23 +170,21 @@ def prepare_example(filename, bbox, scores, classes):
 	sc = []
 	lab =  []
 	for i in range(0, scores.shape[0]):
-		if scores[i] >= 0.5:
-			ymin.append(bbox[i][0])
-			xmin.append(bbox[i][1])
-			ymax.append(bbox[i][2])
-			xmax.append(bbox[i][3])	
+		if scores[i] >= MIN_SCORE:
+			xmin.append(bbox[i][0])
+			ymin.append(bbox[i][1])
+			xmax.append(bbox[i][2])
+			ymax.append(bbox[i][3])	
 			sc.append(scores[i])
 			lab.append(classes[i].encode('utf8'))
 	
-	print('scores ' + str(sc))
-	print('labels ' + str(lab))
 
 	example = tf.train.Example(features=tf.train.Features(feature={		'image/filename': dataset_util.bytes_feature(filename.encode('utf8')),
 	'image/object/bbox/xmin': dataset_util.float_list_feature(xmin),
 	'image/object/bbox/xmax': dataset_util.float_list_feature(xmax),
 	'image/object/bbox/ymin': dataset_util.float_list_feature(ymin),
 	'image/object/bbox/ymax': dataset_util.float_list_feature(ymax),
-	'image/object/class': dataset_util.bytes_list_feature(lab),
+	'image/object/class/text': dataset_util.bytes_list_feature(lab),
 	'image/object/scores': dataset_util.float_list_feature(sc)
 	}))
 
@@ -212,7 +199,7 @@ def inference(data_dir=FLAGS.data_dir, model_dir=FLAGS.model_dir, output_dir=FLA
 
 	# Create detector class
 	detector = Detector(model_dir)
-	inference_reader = Reader(data_dir)
+	inference_reader = Reader(data_dir, split)
 	print(inference_reader.num_records)
 
 	label_map = label_map_util.load_labelmap(FLAGS.label)
@@ -228,16 +215,10 @@ def inference(data_dir=FLAGS.data_dir, model_dir=FLAGS.model_dir, output_dir=FLA
 	for cid in list_valid_ids:
 		category_index[cid]['name'] = convert_label(FLAGS.data_pre,
 						    category_index[cid]['name'])
-
 	for i in range(0, inference_reader.num_records):
-		print(i)
+		print('Record ' + str(i) + ' out of ' + str(inference_reader.num_records))
 		image, filename = inference_reader.get_image()
-		#print('Image type is ' + str(image))
 		bbox, scores, classes, num = detector.detect(image)
-
-		#print('bbox is ' + str(bbox))
-		#print('score is ' + str(scores))
-		#print('classes is ' + str(classes))
 
 		classes = np.squeeze(classes).astype(np.int32)
 		# Select only valid classes
@@ -247,9 +228,7 @@ def inference(data_dir=FLAGS.data_dir, model_dir=FLAGS.model_dir, output_dir=FLA
 		scores = np.squeeze(scores)[idx_consider]
 		
 		classes = [category_index[classes[i]]['name'] for i in range(0, boxes.shape[0])]
-		#print('c is ' + str(c))
       		example = prepare_example(filename, boxes, scores, classes)
-		print('record is ' + str(example))
       		tf_writer.write(example.SerializeToString())
 
 	tf_writer.close()
@@ -258,7 +237,8 @@ def inference(data_dir=FLAGS.data_dir, model_dir=FLAGS.model_dir, output_dir=FLA
 
 
 if __name__ == '__main__':
-  inference(
-      data_dir=FLAGS.data_dir,
-      model_dir=FLAGS.model_dir,
-      output_dir=FLAGS.output_dir)	
+	inference(
+	      data_dir=FLAGS.data_dir,
+	      model_dir=FLAGS.model_dir,
+	      output_dir=FLAGS.output_dir,
+	      split=FLAGS.split)	
