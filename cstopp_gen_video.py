@@ -69,6 +69,10 @@ tf.app.flags.DEFINE_boolean(
     'is_rotate', False,
     'Whether to rotate 180 degree or not (For Accord, True)')
 
+tf.app.flags.DEFINE_string(
+    'model_name', '',
+    'model name to be added in the file name')
+
 FLAGS = tf.app.flags.FLAGS
 
 _FILE_VIDEO = 'cam.mp4'
@@ -130,11 +134,12 @@ class Detector:
 
 def gen_video(list_dpath,fps_in=30,fps_out=30,
               category_index=None,list_valid_ids=None,
-              detector=None,is_rotate=False):
+              detector=None,is_rotate=False,model_name=''):
 
     detector.load_sess() # Load tf.Session
     for d_path in list_dpath:
-        vwriter = FFmpegWriter(os.path.join(d_path,'cam_labeled.mp4'),
+        vwriter = FFmpegWriter(os.path.join(d_path,
+                                            'cam_labeled_{}.mp4'.format(model_name)),
                                inputdict={'-r':str(fps_out)},
                                outputdict={'-r':str(fps_out)})
 
@@ -216,7 +221,8 @@ def main(_):
               category_index=category_index,
               list_valid_ids=list_valid_ids,
               detector=obj_detector,
-              is_rotate=FLAGS.is_rotate)
+              is_rotate=FLAGS.is_rotate,
+              model_name=FLAGS.model_name)
 
 if __name__ == '__main__':
     tf.app.run()

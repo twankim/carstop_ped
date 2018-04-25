@@ -7,6 +7,7 @@ LABEL_MAP=../models/research/object_detection/data/mscoco_label_map.pbtxt
 NUM_CLASS=9
 FPS_IN=30
 FPS_OUT=30
+MODEL_NAME=ssd_inception_v2
 
 python cstopp_gen_video.py \
         --data_pre=${DATA_PRE} \
@@ -16,4 +17,5 @@ python cstopp_gen_video.py \
         --input=/data/cstopp/accord_040118 \
         --fps_in=${FPS_IN} \
         --fps_out=${FPS_OUT} \
-        --is_rotate=True
+        --is_rotate=True \
+        --model_name=${MODEL_NAME}
