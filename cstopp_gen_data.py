@@ -238,7 +238,7 @@ class Detector:
                         feed_dict={self.image_tensor:image_np_expanded})
         return boxes,scores,classes,num
 
-def gen_data(split,list_dpath,out_path,5,
+def gen_data(split,list_dpath,out_path,fps_out,
              category_index=None,list_valid_ids=None,is_vout=False,
              detector=None,is_rotate=False,dict_calib=None,is_gt=False):
     # Create directories to save image, lidar, and label
