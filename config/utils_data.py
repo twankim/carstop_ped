@@ -154,7 +154,7 @@ def points_on_img(points2D,pointsDist,image,
     return image
 
 def dist_from_lidar_bbox(points2D,pointsDist,pointsDistR,bbox,
-                         im_height,im_width,mode='max'):
+                         im_height,im_width,mode='min'):
     """
     Args:
         points2D: lidar points in image coordinate 2d (nx2)
@@ -190,11 +190,12 @@ def dist_from_lidar_bbox(points2D,pointsDist,pointsDistR,bbox,
                 len(points2D_obj)))
         return np.min(pointsDistR_obj)
         # return np.mean(pointsDistR_obj)
-    if mode == 'max':
-        c_sizes = [sum(c_labels==label) for label in labels_list]
+    if mode == 'min':
+        c_dists = [np.mean(pointsDist_obj[c_labels==label]) \
+                   for label in labels_list]
         c_consider = labels_list[c_sizes.index(max(c_sizes))]
     else:
-        c_dists = [np.mean(pointsDist_obj[c_labels==label]) for label in labels_list]
+        c_sizes = [sum(c_labels==label) for label in labels_list]
         c_consider = labels_list[c_sizes.index(max(c_sizes))]
     return np.mean(pointsDistR_obj[c_labels==c_consider])
 

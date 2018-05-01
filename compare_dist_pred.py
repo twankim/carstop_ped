@@ -42,25 +42,28 @@ diff_dict['train'] = []
 diff_dict['test'] = []
 
 data_dir = 'data'
+
+model_name = 'partial_ssd_inception_v2_carstop'
+pred_dir = '../rtpdd/data/results/{}'.format(model_name)
+
 for split in ['train','test']:
   annotation_dir = os.path.join(data_dir,split,'label')
-#  lidar_anno_dir = os.path.join(data_dir,split,'label_lidar')
-  lidar_anno_dir = os.path.join(data_dir,split,'label_lidar_new')
+  pred_anno_dir = os.path.join(pred_dir,split,'label')
 
   names = sorted(tf.gfile.ListDirectory(annotation_dir))
   for name in names:
     anno = read_annotation_file(os.path.join(annotation_dir,name))
-    anno_lidar = read_annotation_file(os.path.join(lidar_anno_dir,name))
+    anno_lidar = read_annotation_file(os.path.join(pred_anno_dir,name))
     
     for i in range(len(anno['score'])):
       if anno['distance'][i]>0:
+        is_detected = False
         for j in range(len(anno_lidar['score'])):
-          if (anno_lidar['type'][j]=='pedestrian') & \
-             (abs(anno_lidar['2d_bbox_top'][j]-anno['2d_bbox_top'][i])<=1e-4) & \
+          if (abs(anno_lidar['2d_bbox_top'][j]-anno['2d_bbox_top'][i])<=1e-4) & \
              (abs(anno_lidar['2d_bbox_left'][j]-anno['2d_bbox_left'][i])<=1e-4) & \
              (abs(anno_lidar['2d_bbox_bottom'][j]-anno['2d_bbox_bottom'][i])<=1e-4) & \
              (abs(anno_lidar['2d_bbox_right'][j]-anno['2d_bbox_right'][i])<=1e-4):
              diff_dict[split].append(abs(anno_lidar['distance'][j]-anno['distance'][i]))
 
-print(len(diff_dict['train']), np.sqrt(np.sum(np.array(diff_dict['train'])**2/float(len(diff_dict['train'])))))
-print(len(diff_dict['test']), np.sqrt(np.sum(np.array(diff_dict['test'])**2/float(len(diff_dict['test'])))))
+print(model_name,len(diff_dict['train']), np.sqrt(np.sum(np.array(diff_dict['train'])**2/float(len(diff_dict['train'])))))
+print(model_name,len(diff_dict['test']), np.sqrt(np.sum(np.array(diff_dict['test'])**2/float(len(diff_dict['test'])))))
