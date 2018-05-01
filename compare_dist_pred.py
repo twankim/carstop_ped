@@ -104,7 +104,7 @@ num_points['test'] = []
 
 data_dir = 'data'
 
-model_name = 'partial_ssd_inception_v2_carstop'
+model_name = 'channel_16/partial_ssd_inception_v2_carstop'
 pred_dir = '../rtpdd/data/results/{}'.format(model_name)
 dict_calib = loadCalib('config/velo/calib_intrinsic.txt',
                        'config/velo/calib_extrinsic.txt')
@@ -117,9 +117,10 @@ for split in ['train','test']:
 
   names = sorted(tf.gfile.ListDirectory(annotation_dir))
   for name in names:
-    name_baase = name.split('.')[0]
-    image = imread(os.path.join(im_dir,name_base+'.txt'))
-    points = np.fromfile(os.path.join(lidar_dir,'lidar')).reshape(-1,3)
+    print(name)
+    name_base = name.split('.')[0]
+    image = imread(os.path.join(im_dir,name_base+'.png'))
+    points = np.fromfile(os.path.join(lidar_dir,name_base+'.bin')).reshape(-1,3)
     anno = read_annotation_file(os.path.join(annotation_dir,name))
     anno_pred = read_annotation_file(os.path.join(pred_anno_dir,name))
     
@@ -139,24 +140,25 @@ for split in ['train','test']:
                                                     im_height,
                                                     im_width)
     iou_mat = iou(det_boxes,gt_boxes)
-    max_overlap_gt_ids = np.argmax(iou_mat,axis=1)
+    if len(gt_boxes)>0:
+      max_overlap_gt_ids = np.argmax(iou_mat,axis=1)
 
-    is_gt_box_detected = np.zeros(gt_boxes.shape[0],dtype=bool)
+      is_gt_box_detected = np.zeros(gt_boxes.shape[0],dtype=bool)
 
-    for i in range(len(anno_pred['score'])):
-      bbox = det_boxes[i,:]
-      idx_in = (points2D[:,0]>=(bbox[0]*im_height)) & \
-               (points2D[:,0]<(bbox[2]*im_height)) & \
-               (points2D[:,1]>=(bbox[1]*im_width)) & \
-               (points2D[:,1]<(bbox[3]*im_width))
-      gt_id = max_overlap_gt_ids[i]
-      if iou_mat[i,gt_id] >= 0.5:
-        if not is_gt_box_detected[gt_id]:
-          is_gt_box_detected[gt_id] = True
-          if anno['distance'][gt_id] >0:
-            diff_dict[split].append(
-                  abs(anno_pred['distance'][i]-anno['distance'][gt_id]))
-            num_points[split].append(sum(idx_in))
+      for i in range(len(anno_pred['score'])):
+        bbox = det_boxes[i,:]
+        idx_in = (points2D[:,0]>=(bbox[0]*im_height)) & \
+                 (points2D[:,0]<(bbox[2]*im_height)) & \
+                 (points2D[:,1]>=(bbox[1]*im_width)) & \
+                 (points2D[:,1]<(bbox[3]*im_width))
+        gt_id = max_overlap_gt_ids[i]
+        if iou_mat[i,gt_id] >= 0.5:
+          if not is_gt_box_detected[gt_id]:
+            is_gt_box_detected[gt_id] = True
+            if anno['distance'][gt_id] >0:
+              diff_dict[split].append(
+                    abs(anno_pred['distance'][i]-anno['distance'][gt_id]))
+              num_points[split].append(sum(idx_in))
 
 diff_dict['train'] = np.array(diff_dict['train'])
 diff_dict['test'] = np.array(diff_dict['test'])
