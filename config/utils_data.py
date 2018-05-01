@@ -193,7 +193,7 @@ def dist_from_lidar_bbox(points2D,pointsDist,pointsDistR,bbox,
     if mode == 'min':
         c_dists = [np.mean(pointsDist_obj[c_labels==label]) \
                    for label in labels_list]
-        c_consider = labels_list[c_sizes.index(max(c_sizes))]
+        c_consider = labels_list[c_dists.index(min(c_dists))]
     else:
         c_sizes = [sum(c_labels==label) for label in labels_list]
         c_consider = labels_list[c_sizes.index(max(c_sizes))]
