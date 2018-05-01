@@ -43,11 +43,13 @@ diff_dict['test'] = []
 
 data_dir = 'data'
 for split in ['train','test']:
+  num_zero = 0
   annotation_dir = os.path.join(data_dir,split,'label')
 #  lidar_anno_dir = os.path.join(data_dir,split,'label_lidar')
   lidar_anno_dir = os.path.join(data_dir,split,'label_lidar_new')
 
   names = sorted(tf.gfile.ListDirectory(annotation_dir))
+  # print(len(names))
   for name in names:
     anno = read_annotation_file(os.path.join(annotation_dir,name))
     anno_lidar = read_annotation_file(os.path.join(lidar_anno_dir,name))
@@ -62,7 +64,16 @@ for split in ['train','test']:
              (abs(anno_lidar['2d_bbox_right'][j]-anno['2d_bbox_right'][i])<=1e-4):
             diff_dict[split].append(abs(anno_lidar['distance'][j]-anno['distance'][i]))
             if anno_lidar['distance'][j]==10.0:
-              print(split, anno['distance'][i],abs(anno_lidar['distance'][j]-anno['distance'][i]))
+              # print(split, anno['distance'][i],abs(anno_lidar['distance'][j]-anno['distance'][i]))
+              num_zero += 1
+      else:
+        for j in range(len(anno_lidar['score'])):
+          if anno_lidar['distance'][j]==10.0:
+            # print(split,'GT zero')
+            num_zero += 1
+  print(num_zero)
 
-print(len(diff_dict['train']), np.sqrt(np.sum(np.array(diff_dict['train'])**2/float(len(diff_dict['train'])))))
-print(len(diff_dict['test']), np.sqrt(np.sum(np.array(diff_dict['test'])**2/float(len(diff_dict['test'])))))
+print(len(diff_dict['train']), 
+  np.sqrt(np.sum(np.array(diff_dict['train'])**2/float(len(diff_dict['train'])))))
+print(len(diff_dict['test']),
+  np.sqrt(np.sum(np.array(diff_dict['test'])**2/float(len(diff_dict['test'])))))
