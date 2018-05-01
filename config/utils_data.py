@@ -177,18 +177,18 @@ def dist_from_lidar_bbox(points2D,pointsDist,pointsDistR,bbox,
     pointsDist_obj = pointsDist[idx_in]
     pointsDistR_obj = pointsDist[idx_in]
     if len(points2D_obj)==0:
-        print('!! Warning: No corresponding point in the box: {} points'.format(
-                len(points2D_obj)))
-        return 10.0
+        # print('!! Warning: No corresponding point in the box: {} points'.format(
+                # len(points2D_obj)))
+        return 10.0, True
     # Cluster points based on the z-axis distance
     # Return the average radial distance of points in the cluster with max size
     db = DBSCAN().fit(pointsDist_obj.reshape(-1,1))
     c_labels = db.labels_
     labels_list = list(set(c_labels)-set([-1]))
     if len(labels_list)==0:
-        print('!! Warning: Clustering failed. {} points'.format(
-                len(points2D_obj)))
-        return np.min(pointsDistR_obj)
+        # print('!! Warning: Clustering failed. {} points'.format(
+                # len(points2D_obj)))
+        return np.min(pointsDistR_obj), False
         # return np.mean(pointsDistR_obj)
     if mode == 'min':
         c_dists = [np.mean(pointsDist_obj[c_labels==label]) \
@@ -197,7 +197,7 @@ def dist_from_lidar_bbox(points2D,pointsDist,pointsDistR,bbox,
     else:
         c_sizes = [sum(c_labels==label) for label in labels_list]
         c_consider = labels_list[c_sizes.index(max(c_sizes))]
-    return np.mean(pointsDistR_obj[c_labels==c_consider])
+    return np.mean(pointsDistR_obj[c_labels==c_consider]), False
 
 # --------------------------------------------------------------
 #                       Functions for Tensorflow

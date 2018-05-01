@@ -60,7 +60,9 @@ for split in ['train','test']:
              (abs(anno_lidar['2d_bbox_left'][j]-anno['2d_bbox_left'][i])<=1e-4) & \
              (abs(anno_lidar['2d_bbox_bottom'][j]-anno['2d_bbox_bottom'][i])<=1e-4) & \
              (abs(anno_lidar['2d_bbox_right'][j]-anno['2d_bbox_right'][i])<=1e-4):
-             diff_dict[split].append(abs(anno_lidar['distance'][j]-anno['distance'][i]))
+            diff_dict[split].append(abs(anno_lidar['distance'][j]-anno['distance'][i]))
+            if anno_lidar['distance'][j]==10.0:
+              print(split, anno['distance'][i],abs(anno_lidar['distance'][j]-anno['distance'][i]))
 
 print(len(diff_dict['train']), np.sqrt(np.sum(np.array(diff_dict['train'])**2/float(len(diff_dict['train'])))))
 print(len(diff_dict['test']), np.sqrt(np.sum(np.array(diff_dict['test'])**2/float(len(diff_dict['test'])))))

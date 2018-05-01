@@ -258,6 +258,8 @@ def gen_data(split,list_dpath,out_path,fps_out,
     if not os.path.exists(opath_label):
         os.makedirs(opath_label)
 
+    num_zero = 0
+
     i_save = 0 # Frame name indexing
     sum_frames = 0 # Current total number of frames
     sum_frames_gt = 0 # Current total number of frames per task
@@ -387,13 +389,16 @@ def gen_data(split,list_dpath,out_path,fps_out,
                                 line += [str(scores[i_obj])]
                                 # Save distance value
                                 if dict_calib:
-                                    dists[i_obj] = dist_from_lidar_bbox(
+                                    dists[i_obj], is_zero = dist_from_lidar_bbox(
                                                             points2D,
                                                             pointsDist,
                                                             pointsDistR,
                                                             boxes[i_obj],
                                                             im_height,
                                                             im_width)
+                                    if is_zero:
+                                        num_zero +=1
+
                                     line += [str(dists[i_obj])]
                                 f_label_lidar.write(' '.join(line)+'\n')
 
@@ -474,6 +479,8 @@ def gen_data(split,list_dpath,out_path,fps_out,
         vwriter2.close()
         if is_gt:
             vwriter_gt.close()
+
+    print(split,num_zero)
 
 def main(_):
     if tf.__version__ < '1.4.0':
